@@ -14,15 +14,23 @@ import type {
   ListResponse,
 } from '../types/api';
 
-const app = express();
+export const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 function nowIso() { return new Date().toISOString(); }
 
 app.post('/mcp/checkCostImpact', async (req, res) => {
-  const body = req.body as CheckRequest;
-  const response: CheckResponse = await checkCostImpact(body);
-  res.json(response);
+  try {
+    const body = req.body as CheckRequest;
+    const response: CheckResponse = await checkCostImpact(body);
+    res.json(response);
+  } catch (e) {
+    const err = (e as Error).message;
+    if (err === 'invalid_request' || err === 'invalid_payload_encoding') {
+      return res.status(400).json({ error: err });
+    }
+    return res.status(500).json({ error: 'internal_error' });
+  }
 });
 
 app.post('/mcp/suggestOptimizations', async (req, res) => {
@@ -70,6 +78,6 @@ export function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
   startServer();
 }

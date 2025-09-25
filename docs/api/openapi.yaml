@@ -21,6 +21,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /suggestOptimizations:
     post:
       summary: Suggest optimizations for resources
@@ -87,6 +99,12 @@ paths:
                 $ref: '#/components/schemas/ListResponse'
 components:
   schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code string
     CheckRequest:
       type: object
       properties:

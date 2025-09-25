@@ -89,6 +89,33 @@ See `docs/api/openapi.yaml` for the MCP endpoint schemas.
 - GitHub Actions example workflow: `.github/workflows/finopsguard-check.yml`
 - GitLab CI job example: `.gitlab/ci-example.yml`
 
+## FR-1: MCP Endpoint — Cost Check
+
+Request example:
+```bash
+PAYLOAD=$(printf 'resource "aws_instance" "example" { instance_type = "t3.medium" }\nprovider "aws" { region="us-east-1" }' | base64)
+curl -sS -X POST "$FINOPSGUARD_URL/mcp/checkCostImpact" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "iac_type":"terraform",
+    "iac_payload":"'"$PAYLOAD"'",
+    "environment":"dev",
+    "budget_rules": {"monthly_budget": 25}
+  }'
+```
+
+Response fields:
+- `estimated_monthly_cost`, `estimated_first_week_cost`
+- `breakdown_by_resource[]`
+- `risk_flags[]` (e.g., `over_budget`)
+- `recommendations[]`
+- `policy_eval` (if budget provided)
+- `pricing_confidence`, `duration_ms`
+
+Errors:
+- `400` `{ "error": "invalid_request|invalid_payload_encoding" }`
+- `500` `{ "error": "internal_error" }`
+
 For detailed requirements and scope, see `fin_ops_guard_mcp_agent_requirements_document.md`.
 
 ## Roadmap

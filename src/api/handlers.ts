@@ -17,15 +17,39 @@ import { addAnalysis, listAnalyses } from '../storage/analyses';
 
 export async function checkCostImpact(req: CheckRequest): Promise<CheckResponse> {
   const start = Date.now();
+  if (!req || !req.iac_type || !req.iac_payload) {
+    throw new Error('invalid_request');
+  }
   let crModel;
   if (req.iac_type === 'terraform') {
-    crModel = parseTerraformToCRModel(Buffer.from(req.iac_payload, 'base64').toString('utf8'));
+    let decoded = '';
+    try {
+      decoded = Buffer.from(req.iac_payload, 'base64').toString('utf8');
+    } catch {
+      throw new Error('invalid_payload_encoding');
+    }
+    crModel = parseTerraformToCRModel(decoded);
   } else {
     crModel = { resources: [] };
   }
   const sim = simulateCost(crModel);
   const duration_ms = Date.now() - start;
   const response = { ...sim, duration_ms };
+
+  // Apply simple budget rule if provided
+  const monthlyBudget = req.budget_rules?.monthly_budget;
+  if (typeof monthlyBudget === 'number') {
+    if (response.estimated_monthly_cost > monthlyBudget) {
+      if (!response.risk_flags.includes('over_budget')) response.risk_flags.push('over_budget');
+      response.policy_eval = {
+        status: 'fail',
+        policy_id: 'monthly_budget',
+        reason: `Estimated ${response.estimated_monthly_cost.toFixed(2)} exceeds budget ${monthlyBudget.toFixed(2)}`,
+      };
+    } else {
+      response.policy_eval = { status: 'pass', policy_id: 'monthly_budget', reason: 'within budget' };
+    }
+  }
   addAnalysis({
     request_id: `${start}`,
     started_at: new Date(start).toISOString(),

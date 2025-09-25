@@ -60,6 +60,13 @@ provider "aws" { region = "us-east-1" }
     const res = await checkCostImpact({ iac_type: 'terraform', iac_payload: b64(tf), environment: 'dev' });
     expect(res.breakdown_by_resource.length).toBeGreaterThanOrEqual(0);
   });
+
+  it('applies budget policy and flags over_budget', async () => {
+    const tf = `resource "aws_instance" "example" { instance_type = "m5.large" } provider "aws" { region = "us-east-1" }`;
+    const res = await checkCostImpact({ iac_type: 'terraform', iac_payload: b64(tf), environment: 'dev', budget_rules: { monthly_budget: 1 } });
+    expect(res.policy_eval?.status).toBe('fail');
+    expect(res.risk_flags).toContain('over_budget');
+  });
 });
 
 
