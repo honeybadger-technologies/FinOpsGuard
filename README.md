@@ -6,6 +6,22 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD.
 - Implements MCP endpoints to analyze IaC changes and enforce cost policies.
 - Integrates with GitHub/GitLab CI to post advisory or blocking feedback.
 - Uses pricing and (optional) usage adapters for projections.
+- Minimal Express server with stub MCP routes and Prometheus metrics.
+
+## Current Status (MVP scaffold)
+- Express server with routes:
+  - POST `/mcp/checkCostImpact`
+  - POST `/mcp/suggestOptimizations`
+  - POST `/mcp/evaluatePolicy`
+  - POST `/mcp/getPriceCatalog`
+  - POST `/mcp/listRecentAnalyses`
+  - GET `/healthz` (liveness)
+  - GET `/metrics` (Prometheus)
+- TypeScript interfaces in `src/types/*`
+- OpenAPI skeleton at `docs/api/openapi.yaml`
+- CI examples:
+  - GitHub Actions: `.github/workflows/finopsguard-check.yml`
+  - GitLab CI: `.gitlab/ci-example.yml`
 
 ## Repo Structure
 ```
@@ -28,25 +44,82 @@ tests/
 
 docs/
   architecture.md
+  api/openapi.yaml
 ```
 
-## Getting Started
+## Prerequisites
 - Node.js 20+
-- npm or pnpm
+- npm
 
-### Install
+## Install
 ```bash
 npm install
 ```
 
-### Run (placeholder)
+## Run (development)
 ```bash
+npm run dev
+# FinOpsGuard MCP listening on :8080
+```
+
+Verify:
+```bash
+curl -sS http://localhost:8080/healthz
+curl -sS http://localhost:8080/metrics | head
+```
+
+## Build and Run (production)
+```bash
+npm run build
 npm start
 ```
 
-### Test (placeholder)
+## Docker
 ```bash
-npm test
+# Build image
+docker build -t finopsguard:dev .
+# Run container
+docker run --rm -p 8080:8080 finopsguard:dev
 ```
 
+## OpenAPI
+See `docs/api/openapi.yaml` for the MCP endpoint schemas.
+
+## CI Examples
+- GitHub Actions example workflow: `.github/workflows/finopsguard-check.yml`
+- GitLab CI job example: `.gitlab/ci-example.yml`
+
 For detailed requirements and scope, see `fin_ops_guard_mcp_agent_requirements_document.md`.
+
+## Roadmap
+
+- MVP (0.1)
+  - checkCostImpact for Terraform + Kubernetes YAML
+  - AWS pricing adapter (on-demand + spot)
+  - GitHub Action (advisory mode)
+  - Prometheus metrics + basic structured logging
+  - Unit tests and a basic integration test
+
+- MVP+ (0.2)
+  - Policy engine with minimal DSL + blocking mode
+  - GCP/Azure pricing adapters
+  - Usage adapter (CloudWatch/Billing) for run-rate hints
+  - Minimal admin UI for analyses, policies, overrides
+
+- Future (0.3+)
+  - Cost forecasts with seasonality/ML
+  - Auto-apply recommended changes via PRs
+  - Multi-account/org chargeback reports
+
+- Near-term dev milestones
+  - Define parser interfaces; add Terraform/K8s parsers returning CRModel
+  - Implement AWS pricing adapter with local cache and confidence flag
+  - Wire simulation engine to compute estimates and resource breakdowns
+  - Implement policy evaluation path and CI blocking exit codes
+  - Expand OpenAPI and add request/response validation
+  - Harden auth (mTLS/OAuth2), add RBAC scaffolding
+  - CI: lint/test; Docker build; optional K8s manifests
+
+- Quality gates
+  - Meet AC-1..AC-5
+  - NFR targets (latency, concurrency, privacy) with metrics dashboards
