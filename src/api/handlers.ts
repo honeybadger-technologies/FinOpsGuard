@@ -13,6 +13,7 @@ import type {
 import { parseTerraformToCRModel } from '../parsers/terraform';
 import { simulateCost } from '../engine/simulation';
 import { listAwsEc2OnDemand } from '../adapters/pricing/awsStatic';
+import { addAnalysis, listAnalyses } from '../storage/analyses';
 
 export async function checkCostImpact(req: CheckRequest): Promise<CheckResponse> {
   const start = Date.now();
@@ -24,7 +25,14 @@ export async function checkCostImpact(req: CheckRequest): Promise<CheckResponse>
   }
   const sim = simulateCost(crModel);
   const duration_ms = Date.now() - start;
-  return { ...sim, duration_ms };
+  const response = { ...sim, duration_ms };
+  addAnalysis({
+    request_id: `${start}`,
+    started_at: new Date(start).toISOString(),
+    duration_ms,
+    summary: `monthly=${response.estimated_monthly_cost.toFixed(2)} resources=${response.breakdown_by_resource.length}`,
+  });
+  return response;
 }
 
 export async function suggestOptimizations(_req: SuggestRequest): Promise<SuggestResponse> {
@@ -51,6 +59,7 @@ export async function getPriceCatalog(_req: PriceQuery): Promise<PriceCatalogRes
   };
 }
 
-export async function listRecentAnalyses(_req: ListQuery): Promise<ListResponse> {
-  return { items: [] };
+export async function listRecentAnalyses(req: ListQuery): Promise<ListResponse> {
+  const { items, next_cursor } = listAnalyses(req.limit ?? 20, req.after);
+  return { items, next_cursor };
 }
