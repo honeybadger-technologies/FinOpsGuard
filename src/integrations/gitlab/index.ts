@@ -1,1 +1,1 @@
-export {};\n
+export {};

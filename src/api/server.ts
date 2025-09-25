@@ -58,7 +58,7 @@ app.get('/metrics', async (_req, res) => {
     const text = await metricsText();
     res.set('Content-Type', 'text/plain');
     res.send(text);
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: 'metrics_unavailable' });
   }
 });
@@ -66,7 +66,6 @@ app.get('/metrics', async (_req, res) => {
 const port = process.env.PORT ? Number(process.env.PORT) : 8080;
 export function startServer() {
   return app.listen(port, () => {
-    // eslint-disable-next-line no-console
     console.log(`FinOpsGuard MCP listening on :${port}`);
   });
 }

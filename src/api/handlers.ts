@@ -10,17 +10,20 @@ import type {
   ListQuery,
   ListResponse,
 } from '../types/api';
+import { parseTerraformToCRModel } from '../parsers/terraform';
+import { simulateCost } from '../engine/simulation';
 
-export async function checkCostImpact(_req: CheckRequest): Promise<CheckResponse> {
-  return {
-    estimated_monthly_cost: 0,
-    estimated_first_week_cost: 0,
-    breakdown_by_resource: [],
-    risk_flags: [],
-    recommendations: [],
-    pricing_confidence: 'low',
-    duration_ms: 1,
-  };
+export async function checkCostImpact(req: CheckRequest): Promise<CheckResponse> {
+  const start = Date.now();
+  let crModel;
+  if (req.iac_type === 'terraform') {
+    crModel = parseTerraformToCRModel(Buffer.from(req.iac_payload, 'base64').toString('utf8'));
+  } else {
+    crModel = { resources: [] };
+  }
+  const sim = simulateCost(crModel);
+  const duration_ms = Date.now() - start;
+  return { ...sim, duration_ms };
 }
 
 export async function suggestOptimizations(_req: SuggestRequest): Promise<SuggestResponse> {
