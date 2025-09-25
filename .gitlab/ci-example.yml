@@ -1,0 +1,14 @@
+stages:
+  - finopsguard
+
+finopsguard_check:
+  stage: finopsguard
+  image: curlimages/curl:8.9.1
+  script:
+    - echo "{}" > payload.json
+    - export PAYLOAD=$(base64 -w0 payload.json)
+    - |
+      curl -sS -X POST "$FINOPSGUARD_URL/mcp/evaluatePolicy" \
+        -H "Authorization: Bearer $FINOPSGUARD_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"iac_type\":\"terraform\",\"iac_payload\":\"$PAYLOAD\",\"policy_id\":\"monthly_budget\",\"mode\":\"blocking\"}"

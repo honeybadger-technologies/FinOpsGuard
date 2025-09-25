@@ -1,0 +1,296 @@
+openapi: 3.0.3
+info:
+  title: FinOpsGuard MCP API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/mcp
+paths:
+  /checkCostImpact:
+    post:
+      summary: Check cost impact of IaC payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+  /suggestOptimizations:
+    post:
+      summary: Suggest optimizations for resources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestResponse'
+  /evaluatePolicy:
+    post:
+      summary: Evaluate a policy against the IaC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyResponse'
+  /getPriceCatalog:
+    post:
+      summary: Get price catalog for a cloud provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceCatalogResponse'
+  /listRecentAnalyses:
+    post:
+      summary: List recent analyses
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+components:
+  schemas:
+    CheckRequest:
+      type: object
+      properties:
+        iac_type:
+          type: string
+          enum: [terraform, helm, k8s, pulumi]
+        iac_payload:
+          type: string
+        environment:
+          type: string
+          enum: [dev, staging, prod]
+        budget_rules:
+          type: object
+          properties:
+            monthly_budget:
+              type: number
+            max_per_resource:
+              type: number
+        options:
+          type: object
+          properties:
+            prefer_spot:
+              type: boolean
+            max_execution_secs:
+              type: integer
+    ResourceBreakdownItem:
+      type: object
+      properties:
+        resource_id:
+          type: string
+        monthly_cost:
+          type: number
+        notes:
+          type: array
+          items:
+            type: string
+    CheckResponse:
+      type: object
+      properties:
+        estimated_monthly_cost:
+          type: number
+        estimated_first_week_cost:
+          type: number
+        breakdown_by_resource:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceBreakdownItem'
+        risk_flags:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        policy_eval:
+          $ref: '#/components/schemas/PolicyEvaluation'
+        pricing_confidence:
+          type: string
+          enum: [high, medium, low]
+        duration_ms:
+          type: integer
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [right_size, spot, reserved, autoscale, other]
+        description:
+          type: string
+        estimated_savings_monthly:
+          type: number
+    PolicyEvaluation:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, fail]
+        policy_id:
+          type: string
+        reason:
+          type: string
+    SuggestRequest:
+      type: object
+      properties:
+        iac_type:
+          type: string
+          enum: [terraform, helm, k8s, pulumi]
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/CanonicalResource'
+    SuggestResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+    PolicyRequest:
+      type: object
+      properties:
+        iac_type:
+          type: string
+          enum: [terraform, helm, k8s, pulumi]
+        iac_payload:
+          type: string
+        policy_id:
+          type: string
+        mode:
+          type: string
+          enum: [advisory, blocking]
+    PolicyResponse:
+      allOf:
+        - $ref: '#/components/schemas/PolicyEvaluation'
+    PriceQuery:
+      type: object
+      properties:
+        cloud:
+          type: string
+          enum: [aws, gcp, azure]
+        region:
+          type: string
+        instance_types:
+          type: array
+          items:
+            type: string
+    PriceCatalogResponse:
+      type: object
+      properties:
+        updated_at:
+          type: string
+          format: date-time
+        pricing_confidence:
+          type: string
+          enum: [high, medium, low]
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku:
+                type: string
+              description:
+                type: string
+              region:
+                type: string
+              unit:
+                type: string
+                enum: [hour, month, gb-month, requests]
+              price:
+                type: number
+              attributes:
+                type: object
+                additionalProperties:
+                  type: string
+    ListQuery:
+      type: object
+      properties:
+        limit:
+          type: integer
+        after:
+          type: string
+    ListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              request_id:
+                type: string
+              started_at:
+                type: string
+                format: date-time
+              duration_ms:
+                type: integer
+              summary:
+                type: string
+        next_cursor:
+          type: string
+    CanonicalResource:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        region:
+          type: string
+        size:
+          type: string
+        count:
+          type: integer
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: object

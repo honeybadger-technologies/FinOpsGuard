@@ -1,0 +1,23 @@
+name: FinOpsGuard Check (Example)
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+  finopsguard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package IaC payload (example)
+        run: |
+          echo "{}" > payload.json
+          echo "::set-output name=payload::$(base64 -w0 payload.json)"
+      - name: Run FinOpsGuard check
+        uses: actions/http-client@v1
+        with:
+          url: ${{ env.FINOPSGUARD_URL }}/mcp/checkCostImpact
+          method: POST
+          headers: |
+            Authorization: Bearer ${{ secrets.FINOPSGUARD_TOKEN }}
+            Content-Type: application/json
+          body: |
+            { "iac_type": "terraform", "iac_payload": "${{ steps.package.outputs.payload }}", "environment": "dev" }

@@ -1,0 +1,11 @@
+{
+  "name": "finopsguard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'TODO: add build'",
+    "test": "echo 'TODO: add tests'",
+    "start": "echo 'TODO: start service'"
+  }
+}
