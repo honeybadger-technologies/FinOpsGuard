@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "finopsguard-github": "dist/integrations/github/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "NODE_ENV=development tsx src/api/server.ts",
     "start": "NODE_ENV=production node dist/api/server.js",
     "test": "vitest run",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
-    "lint:fix": "eslint --fix \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\""
+    "lint:fix": "eslint --fix \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
+    "post-to-pr": "tsx src/integrations/github/cli.ts"
   },
   "dependencies": {
     "express": "^4.19.2",

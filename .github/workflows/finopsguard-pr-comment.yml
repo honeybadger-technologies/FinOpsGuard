@@ -1,0 +1,32 @@
+name: FinOpsGuard PR Comment (Example)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci || npm install
+      - name: Package Terraform (concatenate .tf files)
+        run: |
+          find . -type f -name '*.tf' -print0 | xargs -0 cat > payload.tf || echo > payload.tf
+      - name: Post FinOpsGuard summary to PR (deployed URL)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINOPSGUARD_URL: ${{ vars.FINOPSGUARD_URL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "${FINOPSGUARD_URL}" ]; then echo "FINOPSGUARD_URL not set (define in org/repo variables)"; exit 1; fi
+          npm run post-to-pr -- --owner "${GITHUB_REPOSITORY%/*}" --repo "${GITHUB_REPOSITORY#*/}" --pr "$PR_NUMBER" --token "$GITHUB_TOKEN" --iac-file payload.tf --iac-type terraform --environment dev
+
