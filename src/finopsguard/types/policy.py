@@ -233,6 +233,15 @@ class PolicyStore:
         """Add or update a policy"""
         self._policies[policy.id] = policy
     
+    def update_policy(self, policy_id: str, updated_policy: Policy) -> bool:
+        """Update an existing policy by ID"""
+        if policy_id in self._policies:
+            # Preserve the original ID
+            updated_policy.id = policy_id
+            self._policies[policy_id] = updated_policy
+            return True
+        return False
+    
     def remove_policy(self, policy_id: str) -> bool:
         """Remove a policy by ID"""
         if policy_id in self._policies:

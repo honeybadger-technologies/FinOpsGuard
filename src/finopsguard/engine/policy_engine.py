@@ -91,6 +91,10 @@ class PolicyEngine:
         """Add a new policy to the store"""
         self.policy_store.add_policy(policy)
     
+    def update_policy(self, policy_id: str, updated_policy: Policy) -> bool:
+        """Update an existing policy in the store"""
+        return self.policy_store.update_policy(policy_id, updated_policy)
+    
     def remove_policy(self, policy_id: str) -> bool:
         """Remove a policy from the store"""
         return self.policy_store.remove_policy(policy_id)

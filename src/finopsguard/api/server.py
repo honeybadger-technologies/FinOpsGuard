@@ -5,12 +5,13 @@ FastAPI server for FinOpsGuard MCP endpoints
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .handlers import (
     check_cost_impact, suggest_optimizations, evaluate_policy,
     get_price_catalog, list_recent_analyses, list_policies,
-    get_policy, create_policy, delete_policy
+    get_policy, create_policy, update_policy, delete_policy
 )
 from ..types.api import (
     CheckRequest, SuggestRequest, PolicyRequest,
@@ -96,6 +97,16 @@ async def create_policy_endpoint(policy_data: dict):
         raise HTTPException(status_code=400, detail={"error": str(e)})
 
 
+@app.put("/mcp/policies/{policy_id}")
+async def update_policy_endpoint(policy_id: str, policy_data: dict):
+    """Update an existing policy"""
+    try:
+        response = await update_policy(policy_id, policy_data)
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": str(e)})
+
+
 @app.delete("/mcp/policies/{policy_id}")
 async def delete_policy_endpoint(policy_id: str):
     """Delete a policy by ID"""
@@ -122,6 +133,16 @@ async def metrics():
         return get_metrics_text()
     except Exception:
         raise HTTPException(status_code=500, detail={"error": "metrics_unavailable"})
+
+
+# Mount static files for admin UI
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+async def root():
+    """Serve the admin UI"""
+    return FileResponse("static/index.html")
 
 
 def create_app() -> FastAPI:

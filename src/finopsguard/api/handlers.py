@@ -238,35 +238,144 @@ async def create_policy(policy_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new policy"""
     from ..types.policy import Policy, PolicyViolationAction, PolicyExpression, PolicyRule, PolicyOperator
     
+    # Map string operators to enum values
+    operator_map = {
+        "equals": PolicyOperator.EQ,
+        "not_equals": PolicyOperator.NE,
+        "in": PolicyOperator.IN,
+        "not_in": PolicyOperator.NE,  # Will need special handling
+        "greater_than": PolicyOperator.GT,
+        "less_than": PolicyOperator.LT
+    }
+    
     # Build policy expression if provided
     expression = None
     if "rules" in policy_data:
         rules = []
         for rule_data in policy_data["rules"]:
-            rule = PolicyRule(
-                field=rule_data["field"],
-                operator=PolicyOperator(rule_data["operator"]),
-                value=rule_data["value"]
-            )
+            # Handle nested expression structure from admin UI
+            if "expression" in rule_data:
+                expr_data = rule_data["expression"]
+                operator_str = expr_data["operator"]
+                operator = operator_map.get(operator_str, PolicyOperator.EQ)
+                
+                rule = PolicyRule(
+                    field=expr_data["field"],
+                    operator=operator,
+                    value=expr_data["value"]
+                )
+            else:
+                # Handle direct rule structure
+                operator_str = rule_data["operator"]
+                operator = operator_map.get(operator_str, PolicyOperator.EQ)
+                
+                rule = PolicyRule(
+                    field=rule_data["field"],
+                    operator=operator,
+                    value=rule_data["value"]
+                )
             rules.append(rule)
         
-        expression = PolicyExpression(
-            rules=rules,
-            operator=policy_data.get("rule_operator", "and")
-        )
+        if rules:
+            expression = PolicyExpression(
+                rules=rules,
+                operator=policy_data.get("rule_operator", "and")
+            )
+    
+    # Generate a unique ID if not provided
+    import uuid
+    policy_id = policy_data.get("id", str(uuid.uuid4()))
     
     policy = Policy(
-        id=policy_data["id"],
+        id=policy_id,
         name=policy_data["name"],
         description=policy_data.get("description"),
         budget=policy_data.get("budget"),
         expression=expression,
-        on_violation=PolicyViolationAction(policy_data.get("on_violation", "advisory")),
+        on_violation=PolicyViolationAction(policy_data.get("action", "advisory")),
         enabled=policy_data.get("enabled", True)
     )
     
     policy_engine.add_policy(policy)
     return {"message": f"Policy {policy.id} created successfully"}
+
+
+async def update_policy(policy_id: str, policy_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Update an existing policy"""
+    from ..types.policy import Policy, PolicyViolationAction, PolicyExpression, PolicyRule, PolicyOperator
+    
+    # Map string operators to enum values
+    operator_map = {
+        "equals": PolicyOperator.EQ,
+        "not_equals": PolicyOperator.NE,
+        "in": PolicyOperator.IN,
+        "not_in": PolicyOperator.NE,  # Will need special handling
+        "greater_than": PolicyOperator.GT,
+        "less_than": PolicyOperator.LT
+    }
+    
+    # Check if policy exists
+    existing_policy = policy_engine.get_policy(policy_id)
+    if not existing_policy:
+        raise ValueError(f"Policy {policy_id} not found")
+    
+    # Build policy expression if provided
+    expression = None
+    if "rules" in policy_data:
+        rules = []
+        for rule_data in policy_data["rules"]:
+            # Handle nested expression structure from admin UI
+            if "expression" in rule_data:
+                expr_data = rule_data["expression"]
+                operator_str = expr_data["operator"]
+                operator = operator_map.get(operator_str, PolicyOperator.EQ)
+                
+                rule = PolicyRule(
+                    field=expr_data["field"],
+                    operator=operator,
+                    value=expr_data["value"]
+                )
+            else:
+                # Handle direct rule structure
+                operator_str = rule_data["operator"]
+                operator = operator_map.get(operator_str, PolicyOperator.EQ)
+                
+                rule = PolicyRule(
+                    field=rule_data["field"],
+                    operator=operator,
+                    value=rule_data["value"]
+                )
+            rules.append(rule)
+        
+        if rules:
+            expression = PolicyExpression(
+                rules=rules,
+                operator=policy_data.get("rule_operator", "and")
+            )
+    
+    # Create updated policy
+    policy = Policy(
+        id=policy_id,  # Keep the original ID
+        name=policy_data["name"],
+        description=policy_data.get("description", ""),
+        budget=policy_data.get("budget"),
+        expression=expression,
+        on_violation=PolicyViolationAction(policy_data.get("action", "advisory")),
+        enabled=policy_data.get("enabled", True)
+    )
+    
+    # Update the policy
+    success = policy_engine.update_policy(policy_id, policy)
+    if not success:
+        raise ValueError(f"Failed to update policy {policy_id}")
+    
+    return {
+        "id": policy.id,
+        "name": policy.name,
+        "description": policy.description,
+        "enabled": policy.enabled,
+        "message": f"Policy {policy.name} updated successfully"
+    }
 
 
 async def delete_policy(policy_id: str) -> Dict[str, Any]:

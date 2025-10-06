@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinOpsGuard Admin</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>FinOpsGuard</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#dashboard" class="nav-link active" data-section="dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+                <a href="#policies" class="nav-link" data-section="policies">
+                    <i class="fas fa-cogs"></i> Policies
+                </a>
+                <a href="#analyses" class="nav-link" data-section="analyses">
+                    <i class="fas fa-chart-line"></i> Analyses
+                </a>
+                <a href="#settings" class="nav-link" data-section="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="content-section active">
+            <div class="section-header">
+                <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+                <p>Overview of FinOpsGuard system status and metrics</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="total-analyses">0</h3>
+                        <p>Total Analyses</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="active-policies">0</h3>
+                        <p>Active Policies</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="policy-violations">0</h3>
+                        <p>Policy Violations</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="total-cost">$0</h3>
+                        <p>Total Projected Cost</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3><i class="fas fa-clock"></i> Recent Analyses</h3>
+                    <div id="recent-analyses" class="activity-list">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <h3><i class="fas fa-shield-alt"></i> Policy Status</h3>
+                    <div id="policy-status" class="policy-status">
+                        <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Policies Section -->
+        <section id="policies" class="content-section">
+            <div class="section-header">
+                <h1><i class="fas fa-cogs"></i> Policy Management</h1>
+                <p>Create and manage cost governance policies</p>
+                <button class="btn btn-primary" onclick="openPolicyModal()">
+                    <i class="fas fa-plus"></i> Create Policy
+                </button>
+            </div>
+
+            <div class="policies-container">
+                <div class="policies-filters">
+                    <input type="text" id="policy-search" placeholder="Search policies..." class="search-input">
+                    <select id="policy-status-filter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="enabled">Enabled</option>
+                        <option value="disabled">Disabled</option>
+                    </select>
+                </div>
+
+                <div id="policies-list" class="policies-list">
+                    <div class="loading">Loading policies...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analyses Section -->
+        <section id="analyses" class="content-section">
+            <div class="section-header">
+                <h1><i class="fas fa-chart-line"></i> Analysis History</h1>
+                <p>View and manage cost impact analyses</p>
+            </div>
+
+            <div class="analyses-container">
+                <div class="analyses-filters">
+                    <input type="text" id="analysis-search" placeholder="Search analyses..." class="search-input">
+                    <select id="analysis-environment-filter" class="filter-select">
+                        <option value="">All Environments</option>
+                        <option value="dev">Development</option>
+                        <option value="staging">Staging</option>
+                        <option value="prod">Production</option>
+                    </select>
+                    <input type="date" id="analysis-date-from" class="date-input" title="From Date">
+                    <input type="date" id="analysis-date-to" class="date-input" title="To Date">
+                </div>
+
+                <div id="analyses-list" class="analyses-list">
+                    <div class="loading">Loading analyses...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Section -->
+        <section id="settings" class="content-section">
+            <div class="section-header">
+                <h1><i class="fas fa-cog"></i> Settings</h1>
+                <p>Configure FinOpsGuard system settings</p>
+            </div>
+
+            <div class="settings-container">
+                <div class="settings-card">
+                    <h3><i class="fas fa-server"></i> API Configuration</h3>
+                    <div class="setting-item">
+                        <label for="api-base-url">API Base URL:</label>
+                        <input type="text" id="api-base-url" value="http://localhost:8080" class="setting-input">
+                    </div>
+                    <div class="setting-item">
+                        <label for="api-timeout">Request Timeout (seconds):</label>
+                        <input type="number" id="api-timeout" value="30" class="setting-input">
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3><i class="fas fa-bell"></i> Notifications</h3>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="notify-violations" checked>
+                            Notify on policy violations
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="notify-budget-exceeded" checked>
+                            Notify when budget exceeded
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3><i class="fas fa-chart-bar"></i> Dashboard</h3>
+                    <div class="setting-item">
+                        <label for="dashboard-refresh">Auto-refresh interval (seconds):</label>
+                        <select id="dashboard-refresh" class="setting-select">
+                            <option value="30">30 seconds</option>
+                            <option value="60" selected>1 minute</option>
+                            <option value="300">5 minutes</option>
+                            <option value="0">Disabled</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Policy Modal -->
+    <div id="policy-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Create New Policy</h2>
+                <span class="close" onclick="closePolicyModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="policy-form">
+                    <div class="form-group">
+                        <label for="policy-name">Policy Name:</label>
+                        <input type="text" id="policy-name" required class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="policy-description">Description:</label>
+                        <textarea id="policy-description" class="form-textarea" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="policy-enabled">Status:</label>
+                        <select id="policy-enabled" class="form-select">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                        </select>
+                    </div>
+                    
+                    <div class="rules-section">
+                        <h3>Policy Rules</h3>
+                        <div id="policy-rules">
+                            <div class="rule-item">
+                                <div class="rule-header">
+                                    <input type="text" placeholder="Rule name" class="rule-name" required>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRule(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="rule-content">
+                                    <div class="form-group">
+                                        <label>Description:</label>
+                                        <input type="text" class="rule-description" placeholder="Rule description">
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Field:</label>
+                                            <select class="rule-field">
+                                                <option value="resource.size">Resource Size</option>
+                                                <option value="resource.type">Resource Type</option>
+                                                <option value="resource.region">Resource Region</option>
+                                                <option value="resource.tags.Environment">Environment Tag</option>
+                                                <option value="cost.monthly">Monthly Cost</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Operator:</label>
+                                            <select class="rule-operator">
+                                                <option value="equals">Equals</option>
+                                                <option value="not_equals">Not Equals</option>
+                                                <option value="in">In</option>
+                                                <option value="not_in">Not In</option>
+                                                <option value="greater_than">Greater Than</option>
+                                                <option value="less_than">Less Than</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Value:</label>
+                                            <input type="text" class="rule-value" placeholder="e.g., t3.large,t3.xlarge" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Action:</label>
+                                            <select class="rule-action">
+                                                <option value="block">Block</option>
+                                                <option value="advisory">Advisory</option>
+                                                <option value="warning">Warning</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="addRule()">
+                            <i class="fas fa-plus"></i> Add Rule
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closePolicyModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="savePolicy()">Save Policy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Details Modal -->
+    <div id="analysis-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>Analysis Details</h2>
+                <span class="close" onclick="closeAnalysisModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="analysis-details">
+                <div class="loading">Loading analysis details...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
