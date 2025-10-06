@@ -24,7 +24,22 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **GET** `/mcp/policies` - List all policies
 - **GET** `/mcp/policies/{id}` - Get specific policy
 - **POST** `/mcp/policies` - Create new policy
+- **PUT** `/mcp/policies/{id}` - Update existing policy
 - **DELETE** `/mcp/policies/{id}` - Delete policy
+
+### Admin UI
+- **GET** `/` - Modern web interface for policy and analysis management
+- **Dashboard**: Real-time metrics and activity overview
+- **Policy Management**: Visual policy builder with rule editor
+- **Analysis History**: Detailed cost analysis results and trends
+- **Settings**: Configuration management and system settings
+
+### CI/CD Integration
+- **GitHub Actions**: Ready-to-use workflow for automated cost checking
+- **GitLab CI**: Reusable job template for GitLab pipelines
+- **CLI Tool**: Command-line interface for any CI/CD platform
+- **Universal Script**: Cross-platform bash script for CI/CD integration
+- **PR/MR Comments**: Automated posting of cost analysis results
 
 ### Features
 - ✅ **Terraform Parser**: Full HCL parsing with support for multiple AWS resources
@@ -33,6 +48,8 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - ✅ **Blocking Mode**: Policy violations can block deployments
 - ✅ **Resource Support**: EC2, RDS, EKS, ElastiCache, DynamoDB, Redshift, OpenSearch, Load Balancers
 - ✅ **Auto-generated OpenAPI**: Complete API documentation at `/docs`
+- ✅ **Admin UI**: Modern web interface for management and monitoring
+- ✅ **CI/CD Integration**: Seamless integration with GitHub Actions and GitLab CI
 
 ## Repo Structure
 ```
@@ -45,16 +62,36 @@ src/finopsguard/
   parsers/             # Terraform HCL -> Canonical Resource Model
   storage/             # In-memory analysis storage
   types/               # Pydantic models and policy definitions
-  integrations/        # CI/CD integration helpers (future)
+  integrations/        # CI/CD integration helpers
+    github/            # GitHub Actions and PR commenting
+    gitlab/            # GitLab CI and MR commenting
+  cli/                 # Command-line interface tools
   metrics/             # Prometheus metrics
   
 tests/
   unit/                # Unit tests (24 tests)
   integration/         # Integration tests (14 tests)
 
+static/                # Admin UI static files
+  css/                 # Stylesheets
+  js/                  # JavaScript application
+  assets/              # Images and other assets
+
+scripts/               # CI/CD integration scripts
+  finopsguard-cicd.sh  # Universal CI/CD integration script
+
+.github/
+  workflows/           # GitHub Actions workflows
+    finopsguard-check.yml
+
+.gitlab/
+  ci-templates/        # GitLab CI job templates
+    finopsguard.yml
+
 docs/
   requirements.md      # Detailed requirements and specifications
   architecture.md      # System architecture documentation
+  cicd-integration.md  # CI/CD integration guide
 ```
 
 ## Quick Start
@@ -91,6 +128,9 @@ curl -sS http://localhost:8080/metrics | head
 
 # API documentation
 open http://localhost:8080/docs
+
+# Admin UI
+open http://localhost:8080/
 ```
 
 ### Docker Deployment
@@ -186,6 +226,8 @@ PYTHONPATH=src pytest tests/ -v
 - ✅ Terraform parser with comprehensive resource support
 - ✅ API endpoints with request/response validation
 - ✅ Error handling and edge cases
+- ✅ Admin UI functionality and policy management
+- ✅ CI/CD integration scripts and workflows
 
 ## Policy Engine Features
 
@@ -205,6 +247,38 @@ PYTHONPATH=src pytest tests/ -v
 - Cost projections and budget comparisons
 - Historical analysis data
 
+## CI/CD Integration
+
+FinOpsGuard provides comprehensive CI/CD integration for automated cost governance:
+
+### GitHub Actions
+```yaml
+# Copy .github/workflows/finopsguard-check.yml to your repository
+name: FinOpsGuard Cost Check
+on: [pull_request, push]
+```
+
+### GitLab CI
+```yaml
+# Include in your .gitlab-ci.yml
+include:
+  - local: '.gitlab/ci-templates/finopsguard.yml'
+```
+
+### CLI Tool
+```bash
+# Use the CLI for any CI/CD platform
+python -m finopsguard.cli.main check-cost --environment prod --budget 1000
+```
+
+### Universal Script
+```bash
+# Cross-platform script for any CI/CD system
+./scripts/finopsguard-cicd.sh --format json --output results.json
+```
+
+For detailed CI/CD integration instructions, see [docs/cicd-integration.md](docs/cicd-integration.md).
+
 ## Roadmap
 
 ### ✅ MVP+ (0.2) - COMPLETED
@@ -212,13 +286,15 @@ PYTHONPATH=src pytest tests/ -v
 - ✅ Comprehensive Terraform parser
 - ✅ Multi-resource cost simulation
 - ✅ Policy management API
+- ✅ Admin UI with modern web interface
+- ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
 - ✅ Complete test suite (38 tests)
 
 ### Next Phase (0.3)
 - **GCP/Azure Pricing Adapters**: Extend beyond AWS
 - **Usage Integration**: CloudWatch/Billing API integration
-- **CI/CD Integration**: GitHub Actions and GitLab CI helpers
-- **Admin UI**: Web interface for policy and analysis management
+- **Enhanced Admin UI**: Advanced analytics and reporting
+- **Multi-tenant Support**: Organization and team management
 
 ### Future (0.4+)
 - **ML Cost Forecasting**: Seasonal patterns and usage prediction

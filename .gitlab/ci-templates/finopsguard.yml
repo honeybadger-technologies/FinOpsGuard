@@ -1,0 +1,223 @@
+# FinOpsGuard Cost Check Template for GitLab CI
+# Include this template in your .gitlab-ci.yml file
+
+.finopsguard_cost_check:
+  stage: test
+  image: python:3.11-slim
+  before_script:
+    - pip install requests
+  script:
+    - |
+      echo "Running FinOpsGuard cost check..."
+      
+      # Detect infrastructure files
+      TF_FILES=$(find . -name "*.tf" -o -name "*.tfvars" -o -name "*.hcl" | grep -v ".terraform" | head -10)
+      K8S_FILES=$(find . -name "*.yaml" -o -name "*.yml" | grep -E "(kubernetes|k8s|deployment|service|configmap|secret)" | head -10)
+      
+      if [ -n "$TF_FILES" ]; then
+        IAC_TYPE="terraform"
+        IAC_FILES="$TF_FILES"
+      elif [ -n "$K8S_FILES" ]; then
+        IAC_TYPE="kubernetes"
+        IAC_FILES="$K8S_FILES"
+      else
+        echo "No infrastructure files detected, skipping cost check"
+        exit 0
+      fi
+      
+      echo "Infrastructure type: $IAC_TYPE"
+      echo "Infrastructure files: $IAC_FILES"
+      
+      # Combine file contents
+      IAC_CONTENT=""
+      for file in $IAC_FILES; do
+        if [ -f "$file" ]; then
+          echo "Processing file: $file"
+          IAC_CONTENT="$IAC_CONTENT$(echo -e "\n# File: $file\n$(cat "$file")\n")"
+        fi
+      done
+      
+      # Encode content as base64
+      PAYLOAD=$(echo -n "$IAC_CONTENT" | base64 -w 0)
+      
+      # Prepare request body
+      REQUEST_BODY=$(cat <<EOF
+      {
+        "iac_type": "$IAC_TYPE",
+        "iac_payload": "$PAYLOAD",
+        "environment": "${FINOPSGUARD_ENVIRONMENT:-dev}",
+        "budget_rules": {
+          "monthly_budget": ${FINOPSGUARD_MONTHLY_BUDGET:-100}
+        }
+      }
+      EOF
+      )
+      
+      echo "Sending request to FinOpsGuard..."
+      echo "Request URL: ${FINOPSGUARD_URL:-http://localhost:8080}/mcp/checkCostImpact"
+      
+      # Make request to FinOpsGuard
+      RESPONSE=$(curl -s -w "\n%{http_code}" \
+        -X POST "${FINOPSGUARD_URL:-http://localhost:8080}/mcp/checkCostImpact" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $FINOPSGUARD_TOKEN" \
+        -d "$REQUEST_BODY")
+      
+      # Extract response body and status code
+      HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+      RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
+      
+      echo "HTTP Status Code: $HTTP_CODE"
+      echo "Response: $RESPONSE_BODY"
+      
+      # Parse response
+      if [ "$HTTP_CODE" = "200" ]; then
+        echo "✅ FinOpsGuard cost check completed successfully"
+        
+        # Extract key metrics
+        MONTHLY_COST=$(echo "$RESPONSE_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('estimated_monthly_cost', 0))")
+        WEEKLY_COST=$(echo "$RESPONSE_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('estimated_first_week_cost', 0))")
+        RISK_FLAGS=$(echo "$RESPONSE_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); print(','.join(data.get('risk_flags', [])))")
+        POLICY_STATUS=$(echo "$RESPONSE_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); policy=data.get('policy_eval', {}); print(policy.get('status', 'unknown'))")
+        
+        echo "Monthly cost: $MONTHLY_COST"
+        echo "Weekly cost: $WEEKLY_COST"
+        echo "Policy status: $POLICY_STATUS"
+        
+        if [ -n "$RISK_FLAGS" ]; then
+          echo "Risk flags: $RISK_FLAGS"
+        fi
+        
+        # Store response for merge request comment
+        echo "$RESPONSE_BODY" > finopsguard_response.json
+        
+        # Check if policy evaluation failed (blocking)
+        if [ "$POLICY_STATUS" = "fail" ]; then
+          echo "❌ Policy evaluation failed - this may block deployment"
+          echo "Please review the cost analysis and policy recommendations"
+          exit 1
+        else
+          echo "✅ Policy evaluation passed"
+        fi
+        
+      else
+        echo "❌ FinOpsGuard cost check failed with HTTP $HTTP_CODE"
+        echo "Error response: $RESPONSE_BODY"
+        echo "Continuing with warning..."
+      fi
+  artifacts:
+    reports:
+      junit: finopsguard_report.xml
+    paths:
+      - finopsguard_response.json
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - "**/*.tf"
+        - "**/*.tfvars"
+        - "**/*.hcl"
+        - "**/*.yaml"
+        - "**/*.yml"
+        - "**/kubernetes/**"
+        - "**/k8s/**"
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "develop"'
+      changes:
+        - "**/*.tf"
+        - "**/*.tfvars"
+        - "**/*.hcl"
+        - "**/*.yaml"
+        - "**/*.yml"
+        - "**/kubernetes/**"
+        - "**/k8s/**"
+
+# Merge Request Comment Job
+.finopsguard_mr_comment:
+  stage: test
+  image: python:3.11-slim
+  before_script:
+    - pip install python-gitlab requests
+  script:
+    - |
+      echo "Posting FinOpsGuard results to merge request..."
+      
+      if [ -f "finopsguard_response.json" ]; then
+        RESPONSE=$(cat finopsguard_response.json)
+        
+        MONTHLY_COST=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('estimated_monthly_cost', 0))")
+        WEEKLY_COST=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('estimated_first_week_cost', 0))")
+        RISK_FLAGS=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); flags=data.get('risk_flags', []); print('\\n'.join([f'- \`{flag}\`' for flag in flags]))")
+        POLICY_EVAL=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); policy=data.get('policy_eval', {}); print(json.dumps(policy))")
+        RECOMMENDATIONS=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); recs=data.get('recommendations', []); print('\\n'.join([f'- {rec}' for rec in recs]))")
+        BREAKDOWN=$(echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); breakdown=data.get('breakdown_by_resource', []); print('\\n'.join([f'- **{r[\"type\"]}** ({r.get(\"size\", \"N/A\")}): ${r.get(\"estimated_monthly_cost\", 0):.2f}/month' for r in breakdown]))")
+        
+        COMMENT="## 💰 FinOpsGuard Cost Analysis
+
+### 📊 Cost Summary
+- **Estimated Monthly Cost**: $${MONTHLY_COST:.2f}
+- **Estimated Weekly Cost**: $${WEEKLY_COST:.2f}
+- **Environment**: ${FINOPSGUARD_ENVIRONMENT:-dev}
+- **Monthly Budget**: ${FINOPSGUARD_MONTHLY_BUDGET:-100}
+
+### 🛡️ Policy Evaluation
+$(echo "$POLICY_EVAL" | python3 -c "import sys, json; data=json.load(sys.stdin); status=data.get('status', 'unknown'); emoji='✅' if status == 'pass' else '❌'; print(f'{emoji} **Status**: {status.upper()}'); print(f'**Message**: {data.get(\"message\", \"N/A\")}') if data.get('message') else None")
+
+$(if [ -n "$RISK_FLAGS" ]; then echo "### ⚠️ Risk Flags"; echo "$RISK_FLAGS"; echo ""; fi)
+
+$(if [ -n "$RECOMMENDATIONS" ]; then echo "### 💡 Recommendations"; echo "$RECOMMENDATIONS"; echo ""; fi)
+
+$(if [ -n "$BREAKDOWN" ]; then echo "### 📋 Resource Breakdown"; echo "$BREAKDOWN"; echo ""; fi)
+
+---
+*Powered by [FinOpsGuard](https://github.com/your-org/finopsguard)*"
+        
+        # Post comment to merge request
+        python3 << EOF
+import os
+import gitlab
+import json
+
+# Initialize GitLab client
+gl = gitlab.Gitlab(os.environ['CI_SERVER_URL'], private_token=os.environ['GITLAB_TOKEN'])
+project = gl.projects.get(os.environ['CI_PROJECT_ID'])
+
+# Find merge request
+mr_iid = os.environ.get('CI_MERGE_REQUEST_IID')
+if mr_iid:
+    mr = project.mergerequests.get(mr_iid)
+    
+    # Post comment
+    mr.notes.create({'body': '''$COMMENT'''})
+    print("Comment posted to merge request")
+else:
+    print("No merge request found")
+EOF
+        
+      else
+        echo "No FinOpsGuard response found, skipping comment"
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  dependencies:
+    - finopsguard_cost_check
+  allow_failure: true
+
+# Example usage in your .gitlab-ci.yml:
+#
+# include:
+#   - local: '.gitlab/ci-templates/finopsguard.yml'
+#
+# variables:
+#   FINOPSGUARD_URL: "https://your-finopsguard-instance.com"
+#   FINOPSGUARD_TOKEN: $FINOPSGUARD_API_TOKEN
+#   FINOPSGUARD_ENVIRONMENT: "dev"
+#   FINOPSGUARD_MONTHLY_BUDGET: "500"
+#
+# stages:
+#   - test
+#
+# finopsguard_cost_check:
+#   extends: .finopsguard_cost_check
+#
+# finopsguard_mr_comment:
+#   extends: .finopsguard_mr_comment
