@@ -1,17 +1,34 @@
-# Node 20 runtime
-FROM node:20-alpine AS base
-WORKDIR /app
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN npm ci || npm install
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+# Python 3.11 runtime
+FROM python:3.11-slim AS base
 
-FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/dist ./dist
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt pyproject.toml ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY src/ ./src/
+
+# Set Python path
+ENV PYTHONPATH=/app/src
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
+# Expose port
 EXPOSE 8080
-CMD ["node", "dist/api/server.js"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8080/healthz')"
+
+# Run the application
+CMD ["python", "-m", "finopsguard.main"]

@@ -6,10 +6,10 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD.
 - Implements MCP endpoints to analyze IaC changes and enforce cost policies.
 - Integrates with GitHub/GitLab CI to post advisory or blocking feedback.
 - Uses pricing and (optional) usage adapters for projections.
-- Minimal Express server with stub MCP routes and Prometheus metrics.
+- FastAPI server with MCP routes and Prometheus metrics.
 
 ## Current Status (MVP scaffold)
-- Express server with routes:
+- FastAPI server with routes:
   - POST `/mcp/checkCostImpact`
   - POST `/mcp/suggestOptimizations`
   - POST `/mcp/evaluatePolicy`
@@ -17,15 +17,15 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD.
   - POST `/mcp/listRecentAnalyses`
   - GET `/healthz` (liveness)
   - GET `/metrics` (Prometheus)
-- TypeScript interfaces in `src/types/*`
-- OpenAPI skeleton at `docs/api/openapi.yaml`
+- Pydantic models in `src/finopsguard/types/*`
+- Auto-generated OpenAPI schema at `/docs`
 - CI examples:
   - GitHub Actions: `.github/workflows/finopsguard-check.yml`
   - GitLab CI: `.gitlab/ci-example.yml`
 
 ## Repo Structure
 ```
-src/
+src/finopsguard/
   api/                 # MCP methods surface
   adapters/
     pricing/           # Cloud pricing adapters (AWS/GCP/Azure)
@@ -44,21 +44,21 @@ tests/
 
 docs/
   architecture.md
-  api/openapi.yaml
+  requirements.md
 ```
 
 ## Prerequisites
-- Node.js 20+
-- npm
+- Python 3.11+
+- pip
 
 ## Install
 ```bash
-npm install
+pip install -r requirements.txt
 ```
 
 ## Run (development)
 ```bash
-npm run dev
+python -m finopsguard.main
 # FinOpsGuard MCP listening on :8080
 ```
 
@@ -70,20 +70,19 @@ curl -sS http://localhost:8080/metrics | head
 
 ## Build and Run (production)
 ```bash
-npm run build
-npm start
+python -m finopsguard.main
 ```
 
 ## Docker
 ```bash
 # Build image
-docker build -t finopsguard:dev .
+docker build -t finopsguard:latest .
 # Run container
-docker run --rm -p 8080:8080 finopsguard:dev
+docker run --rm -p 8080:8080 finopsguard:latest
 ```
 
 ## OpenAPI
-See `docs/api/openapi.yaml` for the MCP endpoint schemas.
+FastAPI automatically generates OpenAPI schema at `/docs` endpoint.
 
 ## CI Examples
 - GitHub Actions example workflow: `.github/workflows/finopsguard-check.yml`
@@ -116,16 +115,33 @@ Errors:
 - `400` `{ "error": "invalid_request|invalid_payload_encoding" }`
 - `500` `{ "error": "internal_error" }`
 
-For detailed requirements and scope, see `fin_ops_guard_mcp_agent_requirements_document.md`.
+For detailed requirements and scope, see `docs/requirements.md`.
+
+## Testing
+
+Run unit tests:
+```bash
+pytest tests/unit/
+```
+
+Run integration tests:
+```bash
+pytest tests/integration/
+```
+
+Run all tests:
+```bash
+pytest tests/
+```
 
 ## Roadmap
 
-- MVP (0.1)
-  - checkCostImpact for Terraform + Kubernetes YAML
-  - AWS pricing adapter (on-demand + spot)
-  - GitHub Action (advisory mode)
-  - Prometheus metrics + basic structured logging
-  - Unit tests and a basic integration test
+- MVP (0.1) ✅ **COMPLETED**
+  - ✅ checkCostImpact for Terraform + Kubernetes YAML
+  - ✅ AWS pricing adapter (on-demand + spot)
+  - ✅ GitHub Action (advisory mode)
+  - ✅ Prometheus metrics + basic structured logging
+  - ✅ Unit tests and a basic integration test
 
 - MVP+ (0.2)
   - Policy engine with minimal DSL + blocking mode
