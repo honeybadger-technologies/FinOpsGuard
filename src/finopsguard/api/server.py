@@ -9,7 +9,8 @@ from fastapi.responses import PlainTextResponse
 
 from .handlers import (
     check_cost_impact, suggest_optimizations, evaluate_policy,
-    get_price_catalog, list_recent_analyses
+    get_price_catalog, list_recent_analyses, list_policies,
+    get_policy, create_policy, delete_policy
 )
 from ..types.api import (
     CheckRequest, SuggestRequest, PolicyRequest,
@@ -66,6 +67,43 @@ async def list_recent_analyses_endpoint(request: ListQuery):
     """List recent cost analyses"""
     response = await list_recent_analyses(request)
     return response
+
+
+@app.get("/mcp/policies")
+async def list_policies_endpoint():
+    """List all policies"""
+    response = await list_policies()
+    return response
+
+
+@app.get("/mcp/policies/{policy_id}")
+async def get_policy_endpoint(policy_id: str):
+    """Get a specific policy by ID"""
+    try:
+        response = await get_policy(policy_id)
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": str(e)})
+
+
+@app.post("/mcp/policies")
+async def create_policy_endpoint(policy_data: dict):
+    """Create a new policy"""
+    try:
+        response = await create_policy(policy_data)
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"error": str(e)})
+
+
+@app.delete("/mcp/policies/{policy_id}")
+async def delete_policy_endpoint(policy_id: str):
+    """Delete a policy by ID"""
+    try:
+        response = await delete_policy(policy_id)
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": str(e)})
 
 
 @app.get("/healthz")

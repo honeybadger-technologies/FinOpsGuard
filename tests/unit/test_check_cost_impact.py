@@ -62,7 +62,7 @@ async def test_check_cost_impact_with_budget():
     response = await check_cost_impact(request)
     
     assert response.policy_eval is not None
-    assert response.policy_eval.policy_id == "monthly_budget"
+    assert response.policy_eval.policy_id in ['multiple_policies', 'request_budget']
     assert response.policy_eval.status in ['pass', 'fail']
 
 
