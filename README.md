@@ -5,7 +5,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 ## Overview
 - **Cost Analysis**: Analyzes IaC changes and provides accurate cost projections
 - **Policy Engine**: Enforces budget rules and resource constraints with blocking/advisory modes
-- **Multi-Cloud Support**: AWS pricing adapter with support for multiple resource types
+- **Multi-Cloud Support**: AWS and GCP pricing adapters with support for multiple resource types
 - **CI/CD Integration**: Seamless integration with GitHub/GitLab CI for automated cost governance
 - **FastAPI Server**: Modern Python API with auto-generated OpenAPI documentation
 
@@ -42,11 +42,13 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **PR/MR Comments**: Automated posting of cost analysis results
 
 ### Features
-- ✅ **Terraform Parser**: Full HCL parsing with support for multiple AWS resources
-- ✅ **Cost Simulation**: Accurate monthly/weekly cost projections
+- ✅ **Terraform Parser**: Full HCL parsing with support for AWS and GCP resources
+- ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for both AWS and GCP
 - ✅ **Policy Engine**: Budget and rule-based policies with DSL support
 - ✅ **Blocking Mode**: Policy violations can block deployments
-- ✅ **Resource Support**: EC2, RDS, EKS, ElastiCache, DynamoDB, Redshift, OpenSearch, Load Balancers
+- ✅ **Multi-Cloud Support**: 
+  - **AWS**: EC2, RDS, EKS, ElastiCache, DynamoDB, Redshift, OpenSearch, Load Balancers
+  - **GCP**: Compute Engine, Cloud SQL, GKE, Cloud Run, Cloud Functions, Load Balancers, Redis, BigQuery
 - ✅ **Auto-generated OpenAPI**: Complete API documentation at `/docs`
 - ✅ **Admin UI**: Modern web interface for management and monitoring
 - ✅ **CI/CD Integration**: Seamless integration with GitHub Actions and GitLab CI
@@ -56,7 +58,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 src/finopsguard/
   api/                 # FastAPI server and MCP endpoints
   adapters/
-    pricing/           # Cloud pricing adapters (AWS static data)
+    pricing/           # Cloud pricing adapters (AWS and GCP static data)
     usage/             # Historical usage adapters (future)
   engine/              # Cost simulation and policy evaluation
   parsers/             # Terraform HCL -> Canonical Resource Model
@@ -69,7 +71,7 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (24 tests)
+  unit/                # Unit tests (78 tests)
   integration/         # Integration tests (14 tests)
 
 static/                # Admin UI static files
@@ -193,6 +195,34 @@ curl -sS -X POST "http://localhost:8080/mcp/policies" \
 curl -sS http://localhost:8080/mcp/policies
 ```
 
+### GCP Cost Analysis
+Analyze GCP infrastructure changes:
+
+```bash
+# Encode GCP Terraform configuration
+PAYLOAD=$(printf 'resource "google_compute_instance" "web_server" { 
+  machine_type = "e2-standard-4"
+  zone = "us-central1-a"
+}
+resource "google_sql_database_instance" "main_db" {
+  database_version = "POSTGRES_13"
+  settings {
+    tier = "db-n1-standard-2"
+  }
+}
+provider "google" { region="us-central1" }' | base64)
+
+# Check cost impact for GCP resources
+curl -sS -X POST "http://localhost:8080/mcp/checkCostImpact" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "iac_type":"terraform",
+    "iac_payload":"'"$PAYLOAD"'",
+    "environment":"prod",
+    "budget_rules": {"monthly_budget": 100}
+  }'
+```
+
 ### Response Fields
 - `estimated_monthly_cost`, `estimated_first_week_cost` - Cost projections
 - `breakdown_by_resource[]` - Per-resource cost breakdown
@@ -217,13 +247,15 @@ PYTHONPATH=src pytest tests/ -v
 ```
 
 ### Test Categories
-- **Unit Tests** (24 tests): Core business logic, policy engine, cost simulation
+- **Unit Tests** (78 tests): Core business logic, policy engine, cost simulation, AWS pricing, GCP pricing
 - **Integration Tests** (14 tests): HTTP endpoints, API workflows, error handling
 
 ### Test Coverage
 - ✅ Policy engine evaluation and blocking logic
-- ✅ Cost simulation with multiple AWS resources
-- ✅ Terraform parser with comprehensive resource support
+- ✅ Cost simulation with AWS and GCP resources
+- ✅ Terraform parser with comprehensive AWS and GCP resource support
+- ✅ AWS pricing adapter with static pricing data
+- ✅ GCP pricing adapter with comprehensive static pricing data
 - ✅ API endpoints with request/response validation
 - ✅ Error handling and edge cases
 - ✅ Admin UI functionality and policy management
@@ -284,14 +316,16 @@ For detailed CI/CD integration instructions, see [docs/cicd-integration.md](docs
 ### ✅ MVP+ (0.2) - COMPLETED
 - ✅ Policy engine with DSL and blocking mode
 - ✅ Comprehensive Terraform parser
-- ✅ Multi-resource cost simulation
+- ✅ Multi-resource cost simulation (AWS + GCP)
 - ✅ Policy management API
 - ✅ Admin UI with modern web interface
 - ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
-- ✅ Complete test suite (38 tests)
+- ✅ GCP Pricing Adapter with full resource support
+- ✅ Complete test suite (92 tests)
 
 ### Next Phase (0.3)
-- **GCP/Azure Pricing Adapters**: Extend beyond AWS
+- **Azure Pricing Adapter**: Extend beyond AWS and GCP
+- **Real-time Pricing**: Live pricing API integration for accurate cost analysis
 - **Usage Integration**: CloudWatch/Billing API integration
 - **Enhanced Admin UI**: Advanced analytics and reporting
 - **Multi-tenant Support**: Organization and team management

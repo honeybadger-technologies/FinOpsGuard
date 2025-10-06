@@ -184,6 +184,26 @@ async def get_price_catalog(req: PriceQuery) -> PriceCatalogResponse:
             )
             for item in aws_items
         ]
+    elif req.cloud == 'gcp':
+        from ..adapters.pricing.gcp_static import get_gcp_price_catalog
+        gcp_catalog = get_gcp_price_catalog()
+        
+        # Convert GCP pricing to catalog format
+        for service_name, service_data in gcp_catalog['services'].items():
+            if 'instances' in service_data:
+                for instance_type, pricing in service_data['instances'].items():
+                    items.append(PriceCatalogItem(
+                        sku=f"gcp-{service_name}-{instance_type}",
+                        description=f"GCP {service_name} {instance_type}",
+                        region=req.region or 'us-central1',
+                        unit='hour',
+                        price=pricing['price'],
+                        attributes={
+                            'cpu': str(pricing.get('cpu', 1)),
+                            'memory': str(pricing.get('memory', 1)),
+                            'gpu': str(pricing.get('gpu', 0))
+                        }
+                    ))
     
     return PriceCatalogResponse(
         updated_at=datetime.now().isoformat(),
@@ -292,7 +312,7 @@ async def create_policy(policy_data: Dict[str, Any]) -> Dict[str, Any]:
         description=policy_data.get("description"),
         budget=policy_data.get("budget"),
         expression=expression,
-        on_violation=PolicyViolationAction(policy_data.get("action", "advisory")),
+        on_violation=PolicyViolationAction(policy_data.get("action", policy_data.get("on_violation", "advisory"))),
         enabled=policy_data.get("enabled", True)
     )
     
@@ -360,7 +380,7 @@ async def update_policy(policy_id: str, policy_data: Dict[str, Any]) -> Dict[str
         description=policy_data.get("description", ""),
         budget=policy_data.get("budget"),
         expression=expression,
-        on_violation=PolicyViolationAction(policy_data.get("action", "advisory")),
+        on_violation=PolicyViolationAction(policy_data.get("action", policy_data.get("on_violation", "advisory"))),
         enabled=policy_data.get("enabled", True)
     )
     
