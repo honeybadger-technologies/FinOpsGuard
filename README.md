@@ -97,6 +97,7 @@ docs/
   architecture.md      # System architecture documentation
   cicd-integration.md  # CI/CD integration guide
   deployment.md        # Deployment guide (Docker Compose & Kubernetes)
+  integrations.md      # MCP agent integration examples (12+ platforms)
 
 deploy/
   kubernetes/          # Kubernetes manifests
@@ -357,6 +358,483 @@ python -m finopsguard.cli.main check-cost --environment prod --budget 1000
 ```
 
 For detailed CI/CD integration instructions, see [docs/cicd-integration.md](docs/cicd-integration.md).
+
+## MCP Agent Integration
+
+FinOpsGuard is a Model Context Protocol (MCP) agent that can be integrated with various tools and platforms for cost-aware infrastructure governance.
+
+### MCP Architecture
+
+FinOpsGuard exposes standard MCP endpoints that follow the request/response pattern:
+
+```
+┌─────────────────┐
+│   MCP Client    │  (GitHub Actions, GitLab CI, CLI, Custom Tools)
+└────────┬────────┘
+         │ HTTP/JSON
+         ▼
+┌─────────────────┐
+│  FinOpsGuard    │  MCP Endpoints:
+│   MCP Agent     │  - checkCostImpact
+│                 │  - evaluatePolicy
+│                 │  - suggestOptimizations
+│                 │  - getPriceCatalog
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────┬────────┐
+    ▼         ▼          ▼        ▼
+ Parsers   Engine    Adapters  Storage
+```
+
+### Integration Options
+
+#### 1. **REST API Integration**
+
+Direct API calls from any HTTP client:
+
+```bash
+# Cost analysis
+curl -X POST http://finopsguard:8080/mcp/checkCostImpact \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "iac_type": "terraform",
+    "iac_payload": "'$(base64 < main.tf)'",
+    "environment": "prod",
+    "budget_rules": {"monthly_budget": 1000}
+  }'
+```
+
+#### 2. **Python SDK Integration**
+
+Use the CLI module as a library:
+
+```python
+from finopsguard.cli.main import FinOpsGuardCLI
+
+# Initialize client
+client = FinOpsGuardCLI(api_url="http://finopsguard:8080")
+
+# Check cost impact
+result = client.check_cost(
+    file_path="main.tf",
+    environment="prod",
+    budget=1000
+)
+
+# Evaluate policy
+policy_result = client.evaluate_policy(
+    file_path="main.tf",
+    policy_id="no_large_instances_in_dev"
+)
+```
+
+#### 3. **GitHub Actions Integration**
+
+Use the pre-built workflow:
+
+```yaml
+# .github/workflows/cost-check.yml
+name: Cost Check
+on: [pull_request]
+
+jobs:
+  finopsguard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run FinOpsGuard
+        uses: ./.github/workflows/finopsguard-check.yml
+        with:
+          environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+          budget: 1000
+```
+
+Or use the universal script:
+
+```yaml
+- name: Cost Analysis
+  run: |
+    curl -O https://raw.githubusercontent.com/your-org/FinOpsGuard/main/scripts/finopsguard-cicd.sh
+    chmod +x finopsguard-cicd.sh
+    ./finopsguard-cicd.sh --format json --output cost-report.json
+  env:
+    FINOPSGUARD_URL: https://finopsguard.your-company.com
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### 4. **GitLab CI Integration**
+
+Include the template in your `.gitlab-ci.yml`:
+
+```yaml
+include:
+  - local: '.gitlab/ci-templates/finopsguard.yml'
+
+stages:
+  - validate
+  - deploy
+
+cost-check:
+  extends: .finopsguard-check
+  stage: validate
+  variables:
+    ENVIRONMENT: "prod"
+    BUDGET: "1000"
+```
+
+#### 5. **Jenkins Integration**
+
+```groovy
+pipeline {
+    agent any
+    
+    stages {
+        stage('Cost Analysis') {
+            steps {
+                script {
+                    sh '''
+                        curl -X POST ${FINOPSGUARD_URL}/mcp/checkCostImpact \
+                          -H 'Content-Type: application/json' \
+                          -d @- <<EOF
+                        {
+                          "iac_type": "terraform",
+                          "iac_payload": "$(base64 -w0 main.tf)",
+                          "environment": "${ENVIRONMENT}",
+                          "budget_rules": {"monthly_budget": ${BUDGET}}
+                        }
+EOF
+                    '''
+                }
+            }
+        }
+    }
+}
+```
+
+#### 6. **ArgoCD Integration**
+
+PreSync hook for cost validation:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finopsguard-presync
+data:
+  presync.sh: |
+    #!/bin/bash
+    # Extract manifests and check cost
+    kubectl get application $ARGOCD_APP_NAME -o yaml > app.yaml
+    
+    # Call FinOpsGuard
+    PAYLOAD=$(base64 -w0 app.yaml)
+    RESULT=$(curl -X POST $FINOPSGUARD_URL/mcp/checkCostImpact \
+      -H 'Content-Type: application/json' \
+      -d "{\"iac_type\":\"k8s\",\"iac_payload\":\"$PAYLOAD\"}")
+    
+    # Check for policy violations
+    if echo "$RESULT" | jq -e '.risk_flags[] | select(. == "policy_blocked")'; then
+      echo "Cost policy violation - blocking deployment"
+      exit 1
+    fi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: finopsguard-presync-
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  template:
+    spec:
+      containers:
+      - name: finopsguard-check
+        image: curlimages/curl
+        command: ["/bin/sh", "/scripts/presync.sh"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: finopsguard-presync
+      restartPolicy: Never
+```
+
+#### 7. **Terraform Cloud/Enterprise Integration**
+
+Sentinel policy using external data source:
+
+```hcl
+import "http"
+import "json"
+
+# Call FinOpsGuard for cost analysis
+finopsguard_check = func() {
+    # Prepare payload
+    payload = {
+        "iac_type": "terraform",
+        "iac_payload": base64encode(tfplan_json),
+        "environment": workspace.name,
+        "budget_rules": {"monthly_budget": 1000}
+    }
+    
+    # Make request
+    req = http.request("https://finopsguard.company.com/mcp/checkCostImpact").
+        with_body(json.marshal(payload)).
+        with_header("Content-Type", "application/json")
+    
+    resp = json.unmarshal(req.body)
+    
+    # Check for violations
+    if "policy_blocked" in resp.risk_flags {
+        return false
+    }
+    
+    return true
+}
+
+main = rule {
+    finopsguard_check()
+}
+```
+
+#### 8. **Slack Integration**
+
+Post cost analysis to Slack channels:
+
+```python
+import requests
+import json
+
+def post_cost_analysis_to_slack(webhook_url, analysis_result):
+    """Post cost analysis to Slack."""
+    
+    message = {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "💰 FinOpsGuard Cost Analysis"
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Estimated Monthly Cost:*\n${analysis_result['estimated_monthly_cost']:.2f}"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*First Week Cost:*\n${analysis_result['estimated_first_week_cost']:.2f}"
+                    }
+                ]
+            }
+        ]
+    }
+    
+    if "over_budget" in analysis_result.get("risk_flags", []):
+        message["blocks"].append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "⚠️ *Warning:* Budget exceeded!"
+            }
+        })
+    
+    requests.post(webhook_url, json=message)
+
+# Usage
+analysis = requests.post(
+    "http://finopsguard:8080/mcp/checkCostImpact",
+    json={"iac_type": "terraform", "iac_payload": payload}
+).json()
+
+post_cost_analysis_to_slack(
+    webhook_url="https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+    analysis_result=analysis
+)
+```
+
+#### 9. **Prometheus/Grafana Integration**
+
+Monitor FinOpsGuard metrics:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'finopsguard'
+    static_configs:
+      - targets: ['finopsguard:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+```
+
+Create Grafana dashboard queries:
+```promql
+# Total cost checks
+sum(finops_checks_total)
+
+# Average check duration
+rate(finops_checks_duration_seconds_sum[5m]) / 
+rate(finops_checks_duration_seconds_count[5m])
+
+# Policy blocks
+sum(finops_blocks_total)
+
+# Cache hit rate
+sum(finops_cache_hits_total) / 
+(sum(finops_cache_hits_total) + sum(finops_cache_misses_total))
+```
+
+#### 10. **Kubernetes Admission Controller**
+
+Validate resources before creation:
+
+```yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: finopsguard-validator
+webhooks:
+- name: cost.finopsguard.io
+  rules:
+  - apiGroups: ["*"]
+    apiVersions: ["*"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["deployments", "statefulsets"]
+  clientConfig:
+    service:
+      name: finopsguard
+      namespace: finopsguard
+      path: /validate/cost
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+```
+
+#### 11. **Custom Tool Integration**
+
+Use FinOpsGuard API in your own tools:
+
+```python
+import httpx
+import base64
+
+class CostAnalyzer:
+    def __init__(self, api_url: str):
+        self.api_url = api_url
+        self.client = httpx.Client(base_url=api_url)
+    
+    def analyze_terraform(self, tf_content: str, budget: float = None):
+        """Analyze Terraform code for cost impact."""
+        payload = base64.b64encode(tf_content.encode()).decode()
+        
+        request = {
+            "iac_type": "terraform",
+            "iac_payload": payload,
+            "environment": "prod"
+        }
+        
+        if budget:
+            request["budget_rules"] = {"monthly_budget": budget}
+        
+        response = self.client.post("/mcp/checkCostImpact", json=request)
+        return response.json()
+    
+    def get_pricing(self, cloud: str, region: str = None):
+        """Get pricing catalog."""
+        response = self.client.post(
+            "/mcp/getPriceCatalog",
+            json={"cloud": cloud, "region": region}
+        )
+        return response.json()
+
+# Usage
+analyzer = CostAnalyzer("http://finopsguard:8080")
+result = analyzer.analyze_terraform(open("main.tf").read(), budget=1000)
+print(f"Monthly cost: ${result['estimated_monthly_cost']:.2f}")
+```
+
+#### 12. **VS Code Extension Integration**
+
+Create a VS Code extension that uses FinOpsGuard:
+
+```typescript
+// extension.ts
+import * as vscode from 'vscode';
+import axios from 'axios';
+
+export function activate(context: vscode.ExtensionContext) {
+    let disposable = vscode.commands.registerCommand(
+        'finopsguard.analyzeCost',
+        async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) return;
+            
+            const tfContent = editor.document.getText();
+            const payload = Buffer.from(tfContent).toString('base64');
+            
+            const response = await axios.post(
+                'http://finopsguard:8080/mcp/checkCostImpact',
+                {
+                    iac_type: 'terraform',
+                    iac_payload: payload,
+                    environment: 'dev'
+                }
+            );
+            
+            vscode.window.showInformationMessage(
+                `Estimated Monthly Cost: $${response.data.estimated_monthly_cost}`
+            );
+        }
+    );
+    
+    context.subscriptions.push(disposable);
+}
+```
+
+### MCP Protocol Compliance
+
+FinOpsGuard implements the MCP specification with:
+
+- ✅ **Stateless Design**: Each request is independent
+- ✅ **JSON Payloads**: Standard JSON request/response
+- ✅ **HTTP/REST**: Standard HTTP protocol
+- ✅ **Versioned API**: Future-proof with version support
+- ✅ **Error Handling**: Consistent error response format
+- ✅ **Async Support**: Non-blocking operations
+- ✅ **OpenAPI Schema**: Auto-generated documentation
+
+### Integration Best Practices
+
+1. **Use Base64 Encoding**: Always base64-encode IaC payloads
+2. **Set Environment**: Specify dev/staging/prod for accurate policy evaluation
+3. **Handle Errors**: Check for `risk_flags` and `policy_eval.status`
+4. **Cache Results**: Use analysis IDs to track historical results
+5. **Monitor Metrics**: Track via Prometheus for observability
+6. **Enable Caching**: Use Redis for better performance in high-traffic scenarios
+
+### Available Integrations
+
+FinOpsGuard provides ready-to-use integrations for:
+
+- ✅ **GitHub Actions** - Pre-built workflows
+- ✅ **GitLab CI** - Reusable templates
+- ✅ **Jenkins** - Pipeline examples
+- ✅ **CircleCI** - Job configurations
+- ✅ **Azure DevOps** - Pipeline tasks
+- ✅ **ArgoCD** - PreSync hooks
+- ✅ **Flux CD** - Notification providers
+- ✅ **Terraform Cloud** - Sentinel policies
+- ✅ **Kubernetes** - Admission controllers
+- ✅ **Slack** - Bot integration
+- ✅ **VS Code** - Extension support
+- ✅ **Prometheus/Grafana** - Monitoring
+
+**See [docs/integrations.md](docs/integrations.md) for detailed integration examples and code samples.**
 
 ## Caching
 

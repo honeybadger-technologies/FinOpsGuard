@@ -105,10 +105,10 @@ class TestRedisCache:
         cache.set("counter", "0")
         cache.incr("counter")
         result = cache.get("counter")
-        assert result == 1 or result == "1"  # Redis may return string or int
-        cache.incr("counter", 5)
+        assert str(result) == "1"  # Redis may return string or int
+        cache.incr("counter", 5)    
         result = cache.get("counter")
-        assert result == 6 or result == "6"
+        assert str(result) == "6"
         
         # Clean up
         cache.delete("counter")
