@@ -42,7 +42,7 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
             "iac_type": req.iac_type,
             "iac_payload": req.iac_payload,
             "environment": req.environment,
-            "budget_rules": req.budget_rules.model_dump() if req.budget_rules else None
+            "budget_rules": req.budget_rules if isinstance(req.budget_rules, dict) else (req.budget_rules.model_dump() if req.budget_rules else None)
         }, sort_keys=True).encode()
     ).hexdigest()[:32]
     

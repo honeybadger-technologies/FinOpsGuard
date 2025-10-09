@@ -161,7 +161,7 @@ class TestPricingCache:
         catalog_data = {
             "items": [
                 {"instance_type": "t3.small", "price": 0.02},
-                {"instance_type": "t3.medium", "price": 0.04"}
+                {"instance_type": "t3.medium", "price": 0.04}
             ],
             "updated_at": "2025-01-01T00:00:00"
         }
