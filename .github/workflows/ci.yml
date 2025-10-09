@@ -116,4 +116,5 @@ jobs:
 
       - name: Test Docker image
         run: |
+          docker images
           docker run --rm finopsguard:test python -c "import finopsguard; print('Import successful')"
