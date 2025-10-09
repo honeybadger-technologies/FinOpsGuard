@@ -1,0 +1,137 @@
+services:
+  finopsguard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finopsguard:latest
+    container_name: finopsguard
+    restart: unless-stopped
+    ports:
+      - "${FINOPS_PORT:-8080}:8080"
+    environment:
+      # Application Settings
+      - APP_ENV=${APP_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - WORKERS=${WORKERS:-4}
+      
+      # API Configuration
+      - API_HOST=${API_HOST:-0.0.0.0}
+      - API_PORT=${API_PORT:-8080}
+      - API_RELOAD=${API_RELOAD:-false}
+      
+      # Policy Engine
+      - DEFAULT_BUDGET=${DEFAULT_BUDGET:-1000}
+      - ENABLE_BLOCKING=${ENABLE_BLOCKING:-true}
+      
+      # Metrics & Monitoring
+      - METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT:-8080}
+      
+      # Cloud Provider Settings
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - GCP_REGION=${GCP_REGION:-us-central1}
+      
+    volumes:
+      # Mount data directory for persistence (if needed for future features)
+      - finopsguard-data:/app/data
+      # Mount logs directory
+      - finopsguard-logs:/app/logs
+      
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - finopsguard-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: finopsguard-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - finopsguard-network
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: finopsguard-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - finopsguard-network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # Optional: Redis for caching (future enhancement)
+  redis:
+    image: redis:7-alpine
+    container_name: finopsguard-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - finopsguard-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - caching
+
+volumes:
+  finopsguard-data:
+    driver: local
+  finopsguard-logs:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  finopsguard-network:
+    driver: bridge
+

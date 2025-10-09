@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: finopsguard
+  namespace: finopsguard
+  labels:
+    app: finopsguard
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: finopsguard
+  sessionAffinity: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: finopsguard-loadbalancer
+  namespace: finopsguard
+  labels:
+    app: finopsguard
+  annotations:
+    # AWS ELB annotations (uncomment for AWS)
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+    
+    # GCP annotations (uncomment for GCP)
+    # cloud.google.com/load-balancer-type: "External"
+    
+    # Azure annotations (uncomment for Azure)
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app: finopsguard
+

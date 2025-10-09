@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: finopsguard
+  namespace: finopsguard
+  labels:
+    app: finopsguard
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: finopsguard
+

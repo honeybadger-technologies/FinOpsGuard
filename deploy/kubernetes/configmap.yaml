@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finopsguard-config
+  namespace: finopsguard
+  labels:
+    app: finopsguard
+data:
+  # Application Settings
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  WORKERS: "4"
+  
+  # API Configuration
+  API_HOST: "0.0.0.0"
+  API_PORT: "8080"
+  API_RELOAD: "false"
+  
+  # Policy Engine
+  DEFAULT_BUDGET: "1000"
+  ENABLE_BLOCKING: "true"
+  
+  # Metrics
+  METRICS_ENABLED: "true"
+  PROMETHEUS_PORT: "8080"
+  
+  # Cloud Providers
+  AWS_REGION: "us-east-1"
+  GCP_REGION: "us-central1"
+

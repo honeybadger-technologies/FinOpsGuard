@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: finopsguard
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+  - pdb.yaml
+
+# Optional resources (comment/uncomment as needed)
+# - ingress.yaml
+# - servicemonitor.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app: finopsguard
+  managed-by: kustomize
+
+# Image configuration
+images:
+  - name: finopsguard
+    newName: finopsguard
+    newTag: latest
+
+# ConfigMap generator (alternative to configmap.yaml)
+# configMapGenerator:
+#   - name: finopsguard-config
+#     literals:
+#       - APP_ENV=production
+#       - LOG_LEVEL=info
+
+# Secret generator (alternative to secret.yaml)
+# secretGenerator:
+#   - name: finopsguard-secrets
+#     literals:
+#       - GITHUB_TOKEN=xxx
+#       - GITLAB_TOKEN=xxx
+

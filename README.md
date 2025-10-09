@@ -94,6 +94,13 @@ docs/
   requirements.md      # Detailed requirements and specifications
   architecture.md      # System architecture documentation
   cicd-integration.md  # CI/CD integration guide
+  deployment.md        # Deployment guide (Docker Compose & Kubernetes)
+
+deploy/
+  kubernetes/          # Kubernetes manifests
+  prometheus/          # Prometheus configuration
+  grafana/            # Grafana dashboards and datasources
+  QUICK_START.md      # Quick deployment guide
 ```
 
 ## Quick Start
@@ -135,12 +142,42 @@ open http://localhost:8080/docs
 open http://localhost:8080/
 ```
 
-### Docker Deployment
+### Docker Compose Deployment
+
+**Fastest way to get started:**
+
 ```bash
-# Build and run container
-docker build -t finopsguard:latest .
-docker run --rm -p 8080:8080 finopsguard:latest
+# Start FinOpsGuard
+docker-compose up -d
+
+# With monitoring (Prometheus + Grafana)
+docker-compose --profile monitoring up -d
+
+# Verify deployment
+curl http://localhost:8080/healthz
+open http://localhost:8080/
+
+# Stop services
+docker-compose down
 ```
+
+### Kubernetes Deployment
+
+**For production environments:**
+
+```bash
+# Using Makefile
+make k8s-deploy
+
+# Or using kubectl
+kubectl apply -k deploy/kubernetes/
+
+# Verify
+kubectl get pods -n finopsguard
+kubectl port-forward -n finopsguard svc/finopsguard 8080:8080
+```
+
+**See [deploy/QUICK_START.md](deploy/QUICK_START.md) for detailed deployment instructions.**
 
 ## API Usage Examples
 
@@ -311,6 +348,39 @@ python -m finopsguard.cli.main check-cost --environment prod --budget 1000
 
 For detailed CI/CD integration instructions, see [docs/cicd-integration.md](docs/cicd-integration.md).
 
+## Deployment Options
+
+FinOpsGuard supports multiple deployment methods:
+
+### 🐳 Docker Compose
+- **Use case**: Development, testing, small-scale production
+- **Setup time**: < 5 minutes
+- **Features**: Optional monitoring (Prometheus/Grafana), Redis caching
+- **Quick start**: `docker-compose up -d`
+- **Guide**: [deploy/QUICK_START.md](deploy/QUICK_START.md)
+
+### ☸️ Kubernetes
+- **Use case**: Production, high availability, auto-scaling
+- **Setup time**: 10-15 minutes
+- **Features**: HPA, PDB, Ingress, ServiceMonitor, multi-replica
+- **Quick start**: `make k8s-deploy` or `kubectl apply -k deploy/kubernetes/`
+- **Guide**: [docs/deployment.md](docs/deployment.md)
+
+### 🛠️ Makefile Commands
+Convenient commands for common operations:
+```bash
+make help              # Show all available commands
+make test              # Run tests
+make docker-compose-up # Start with Docker Compose
+make k8s-deploy        # Deploy to Kubernetes
+make k8s-logs          # View Kubernetes logs
+```
+
+For comprehensive deployment documentation, see:
+- **Quick Start**: [deploy/QUICK_START.md](deploy/QUICK_START.md)
+- **Full Guide**: [docs/deployment.md](docs/deployment.md)
+- **Troubleshooting**: [deploy/TROUBLESHOOTING.md](deploy/TROUBLESHOOTING.md)
+
 ## Roadmap
 
 ### ✅ MVP+ (0.2) - COMPLETED
@@ -321,6 +391,8 @@ For detailed CI/CD integration instructions, see [docs/cicd-integration.md](docs
 - ✅ Admin UI with modern web interface
 - ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
 - ✅ GCP Pricing Adapter with full resource support
+- ✅ Docker Compose deployment with monitoring stack
+- ✅ Kubernetes deployment with HA and auto-scaling
 - ✅ Complete test suite (92 tests)
 
 ### Next Phase (0.3)

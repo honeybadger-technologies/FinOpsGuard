@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: finopsguard
+  namespace: finopsguard
+  labels:
+    app: finopsguard
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: finopsguard
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+

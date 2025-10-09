@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'finopsguard'
+    environment: 'production'
+
+scrape_configs:
+  - job_name: 'finopsguard'
+    static_configs:
+      - targets: ['finopsguard:8080']
+        labels:
+          service: 'finopsguard-api'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Alerting configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rule files (optional)
+# rule_files:
+#   - '/etc/prometheus/rules/*.yml'
+
