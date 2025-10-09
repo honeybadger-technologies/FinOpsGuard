@@ -7,20 +7,26 @@
 # Basic deployment
 docker-compose up -d
 
+# With database (PostgreSQL)
+docker-compose --profile database up -d
+
 # With monitoring (Prometheus + Grafana)
 docker-compose --profile monitoring up -d
 
 # With caching (Redis)
 docker-compose --profile caching up -d
 
-# Full stack (monitoring + caching)
-docker-compose --profile monitoring --profile caching up -d
+# Full stack (database + caching + monitoring)
+docker-compose --profile database --profile caching --profile monitoring up -d
 ```
 
 ### 2. Verify
 ```bash
-# Check health
+# Check health (shows all components)
 curl http://localhost:8080/healthz
+
+# Check database status
+curl http://localhost:8080/mcp/database/info
 
 # Check cache status
 curl http://localhost:8080/mcp/cache/info
@@ -129,9 +135,10 @@ make k8s-delete      # Delete deployment
 
 ### Docker Compose
 - **FinOpsGuard**: http://localhost:8080
+- **PostgreSQL**: localhost:5432 (database profile, finopsguard/finopsguard)
+- **Redis**: localhost:6379 (caching profile)
 - **Prometheus**: http://localhost:9090 (monitoring profile)
 - **Grafana**: http://localhost:3000 (monitoring profile, admin/changeme)
-- **Redis**: localhost:6379 (caching profile)
 
 ### Kubernetes
 - **Internal**: http://finopsguard.finopsguard.svc.cluster.local:8080

@@ -62,9 +62,10 @@ src/finopsguard/
     pricing/           # Cloud pricing adapters (AWS and GCP static data)
     usage/             # Historical usage adapters (future)
   cache/               # Redis caching layer (pricing, analysis, policies)
+  database/            # PostgreSQL persistent storage (policies, analyses)
   engine/              # Cost simulation and policy evaluation
   parsers/             # Terraform HCL -> Canonical Resource Model
-  storage/             # In-memory analysis storage
+  storage/             # Hybrid storage (in-memory + database)
   types/               # Pydantic models and policy definitions
   integrations/        # CI/CD integration helpers
     github/            # GitHub Actions and PR commenting
@@ -98,6 +99,7 @@ docs/
   cicd-integration.md  # CI/CD integration guide
   deployment.md        # Deployment guide (Docker Compose & Kubernetes)
   integrations.md      # MCP agent integration examples (12+ platforms)
+  database.md          # PostgreSQL configuration and management
 
 deploy/
   kubernetes/          # Kubernetes manifests
@@ -836,6 +838,68 @@ FinOpsGuard provides ready-to-use integrations for:
 
 **See [docs/integrations.md](docs/integrations.md) for detailed integration examples and code samples.**
 
+## Persistent Storage
+
+FinOpsGuard supports PostgreSQL for persistent storage of policies and analysis history:
+
+### Database Features
+- **Policy Persistence**: Policies stored in PostgreSQL and synced to memory
+- **Analysis History**: Full analysis results with queryable metadata
+- **Audit Trail**: Complete history with timestamps and context
+- **Automatic Failover**: Falls back to in-memory storage if database unavailable
+- **Connection Pooling**: Efficient connection management (10-30 connections)
+- **Migrations**: Alembic for schema management
+
+### Enable PostgreSQL
+
+**Docker Compose:**
+```bash
+# Start with database
+docker-compose --profile database up -d
+
+# Or full stack (database + caching + monitoring)
+docker-compose --profile database --profile caching --profile monitoring up -d
+
+# Set environment variable
+echo "DB_ENABLED=true" >> .env
+docker-compose restart finopsguard
+```
+
+**Check Database Status:**
+```bash
+# Get database statistics
+curl http://localhost:8080/mcp/database/info
+
+# Example response:
+# {
+#   "enabled": true,
+#   "total_analyses": 1234,
+#   "average_monthly_cost": 845.50,
+#   "blocked_count": 12
+# }
+```
+
+### Database Management
+
+```bash
+# Initialize database (create tables)
+make db-init
+
+# Run migrations
+make db-upgrade
+
+# Check migration status
+make db-status
+
+# Backup database
+make db-backup
+
+# Open database shell
+make db-shell
+```
+
+**See [docs/database.md](docs/database.md) for comprehensive database documentation.**
+
 ## Caching
 
 FinOpsGuard uses Redis for intelligent caching to dramatically improve performance:
@@ -936,10 +1000,12 @@ For comprehensive deployment documentation, see:
 - ✅ Admin UI with modern web interface
 - ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
 - ✅ GCP Pricing Adapter with full resource support
+- ✅ PostgreSQL persistent storage for policies and analysis history
 - ✅ Redis caching for pricing data and analysis results (10-100x performance boost)
-- ✅ Docker Compose deployment with monitoring stack
+- ✅ Docker Compose deployment with full stack (database + caching + monitoring)
 - ✅ Kubernetes deployment with HA and auto-scaling
-- ✅ Complete test suite (100+ tests)
+- ✅ MCP agent integration with 12+ platforms
+- ✅ Complete test suite (110+ tests)
 
 ### Next Phase (0.3)
 - **Azure Pricing Adapter**: Extend beyond AWS and GCP
@@ -958,5 +1024,5 @@ For comprehensive deployment documentation, see:
 ### Technical Debt & Improvements
 - **Authentication**: mTLS/OAuth2 integration
 - **RBAC**: Role-based access control
-- **Persistent Storage**: PostgreSQL for policies and analysis history
+- **Multi-tenancy**: Organization and team isolation
 - **Monitoring**: Enhanced observability and alerting

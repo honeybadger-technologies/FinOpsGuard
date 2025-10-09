@@ -4,7 +4,17 @@ Main entry point for FinOpsGuard
 
 import uvicorn
 import os
+import logging
 from .api.server import create_app
+
+logger = logging.getLogger(__name__)
+
+# Initialize database on module load
+try:
+    from .database import init_db
+    init_db()
+except Exception as e:
+    logger.warning(f"Database initialization failed: {e}. Using in-memory storage.")
 
 app = create_app()
 

@@ -132,16 +132,22 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
             reason='All policies satisfied'
         )
     
-    # Store analysis record
-    add_analysis(AnalysisRecord(
-        request_id=str(start_time),
-        started_at=datetime.fromtimestamp(start_time / 1000).isoformat(),
-        duration_ms=duration_ms,
-        summary=f"monthly={response.estimated_monthly_cost:.2f} resources={len(response.breakdown_by_resource)}"
-    ))
+    # Prepare result data
+    result_data = response.model_dump()
+    
+    # Store analysis record (both in-memory and database if available)
+    add_analysis(
+        record=AnalysisRecord(
+            request_id=str(start_time),
+            started_at=datetime.fromtimestamp(start_time / 1000).isoformat(),
+            duration_ms=duration_ms,
+            summary=f"monthly={response.estimated_monthly_cost:.2f} resources={len(response.breakdown_by_resource)}"
+        ),
+        result_data=result_data
+    )
     
     # Cache the full analysis result
-    analysis_cache.set_full_analysis(request_hash, response.model_dump())
+    analysis_cache.set_full_analysis(request_hash, result_data)
     
     return response
 

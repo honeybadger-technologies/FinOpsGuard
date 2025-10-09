@@ -31,6 +31,15 @@ services:
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - GCP_REGION=${GCP_REGION:-us-central1}
       
+      # Database Settings
+      - DB_ENABLED=${DB_ENABLED:-false}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://finopsguard:finopsguard@postgres:5432/finopsguard}
+      
+      # Redis Settings
+      - REDIS_ENABLED=${REDIS_ENABLED:-false}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      
     volumes:
       # Mount data directory for persistence (if needed for future features)
       - finopsguard-data:/app/data
@@ -99,7 +108,30 @@ services:
     profiles:
       - monitoring
 
-  # Optional: Redis for caching (future enhancement)
+  # Optional: PostgreSQL for persistent storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: finopsguard-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-finopsguard}
+      - POSTGRES_USER=${POSTGRES_USER:-finopsguard}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-finopsguard}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - finopsguard-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finopsguard"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - database
+
+  # Optional: Redis for caching
   redis:
     image: redis:7-alpine
     container_name: finopsguard-redis
@@ -123,6 +155,8 @@ volumes:
   finopsguard-data:
     driver: local
   finopsguard-logs:
+    driver: local
+  postgres-data:
     driver: local
   prometheus-data:
     driver: local

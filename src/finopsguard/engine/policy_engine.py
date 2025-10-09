@@ -3,16 +3,41 @@ Policy evaluation engine
 """
 
 from typing import Dict, List, Any, Optional
+import logging
+
 from ..types.policy import Policy, PolicyStore, PolicyEvaluationResult, PolicyViolationAction
 from ..types.models import CanonicalResourceModel
 from ..types.api import CheckResponse
+
+logger = logging.getLogger(__name__)
 
 
 class PolicyEngine:
     """Main policy evaluation engine"""
     
-    def __init__(self):
+    def __init__(self, use_database: bool = True):
+        """
+        Initialize policy engine.
+        
+        Args:
+            use_database: Whether to use PostgreSQL for policy storage (falls back to in-memory)
+        """
         self.policy_store = PolicyStore()
+        self.use_database = use_database
+        self._db_store = None
+        
+        if use_database:
+            try:
+                from ..database import get_policy_store, is_db_available
+                if is_db_available():
+                    self._db_store = get_policy_store()
+                    logger.info("Policy engine using PostgreSQL storage")
+                    # Load policies from database into memory store for fast access
+                    self._sync_from_database()
+                else:
+                    logger.info("PostgreSQL not available - using in-memory policy storage")
+            except Exception as e:
+                logger.warning(f"Failed to initialize database policy store: {e}. Using in-memory storage.")
     
     def evaluate_policies(self, 
                          cr_model: CanonicalResourceModel,
@@ -87,17 +112,50 @@ class PolicyEngine:
         
         return policy.evaluate(context)
     
+    def _sync_from_database(self):
+        """Sync policies from database to in-memory store."""
+        if self._db_store:
+            try:
+                db_policies = self._db_store.list_policies()
+                for policy in db_policies:
+                    self.policy_store.add_policy(policy)
+                logger.info(f"Synced {len(db_policies)} policies from database")
+            except Exception as e:
+                logger.error(f"Error syncing policies from database: {e}")
+    
+    def _sync_to_database(self, policy: Policy):
+        """Sync a single policy to database."""
+        if self._db_store:
+            try:
+                if self._db_store.policy_exists(policy.id):
+                    self._db_store.update_policy(policy.id, policy)
+                else:
+                    self._db_store.create_policy(policy)
+            except Exception as e:
+                logger.error(f"Error syncing policy {policy.id} to database: {e}")
+    
     def add_policy(self, policy: Policy) -> None:
         """Add a new policy to the store"""
         self.policy_store.add_policy(policy)
+        # Sync to database if available
+        if self._db_store:
+            self._db_store.create_policy(policy)
     
     def update_policy(self, policy_id: str, updated_policy: Policy) -> bool:
         """Update an existing policy in the store"""
-        return self.policy_store.update_policy(policy_id, updated_policy)
+        success = self.policy_store.update_policy(policy_id, updated_policy)
+        # Sync to database if available
+        if success and self._db_store:
+            self._db_store.update_policy(policy_id, updated_policy)
+        return success
     
     def remove_policy(self, policy_id: str) -> bool:
         """Remove a policy from the store"""
-        return self.policy_store.remove_policy(policy_id)
+        success = self.policy_store.remove_policy(policy_id)
+        # Remove from database if available
+        if success and self._db_store:
+            self._db_store.delete_policy(policy_id)
+        return success
     
     def get_policy(self, policy_id: str) -> Optional[Policy]:
         """Get a policy by ID"""

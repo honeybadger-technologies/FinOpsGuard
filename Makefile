@@ -66,14 +66,20 @@ docker-shell: ## Open shell in Docker container
 docker-compose-up: ## Start services with docker-compose
 	docker-compose up -d
 
+docker-compose-up-database: ## Start services with database
+	docker-compose --profile database up -d
+
 docker-compose-up-monitoring: ## Start services with monitoring
 	docker-compose --profile monitoring up -d
 
-docker-compose-up-all: ## Start all services (with monitoring and caching)
-	docker-compose --profile monitoring --profile caching up -d
+docker-compose-up-all: ## Start all services (database, caching, monitoring)
+	docker-compose --profile database --profile caching --profile monitoring up -d
 
 docker-compose-down: ## Stop docker-compose services
 	docker-compose down
+
+docker-compose-down-all: ## Stop all services including volumes
+	docker-compose --profile database --profile caching --profile monitoring down -v
 
 docker-compose-logs: ## View docker-compose logs
 	docker-compose logs -f finopsguard
@@ -139,6 +145,31 @@ k8s-kustomize-deploy: ## Deploy with Kustomize
 
 k8s-kustomize-delete: ## Delete with Kustomize
 	kubectl delete -k deploy/kubernetes/
+
+# Database
+db-init: ## Initialize database
+	./scripts/db-manage.sh init
+
+db-migrate: ## Generate new migration
+	./scripts/db-manage.sh migrate
+
+db-upgrade: ## Upgrade database to latest version
+	./scripts/db-manage.sh upgrade
+
+db-downgrade: ## Downgrade database to previous version
+	./scripts/db-manage.sh downgrade
+
+db-status: ## Show migration status
+	./scripts/db-manage.sh status
+
+db-shell: ## Open PostgreSQL shell
+	./scripts/db-manage.sh shell
+
+db-backup: ## Backup database
+	./scripts/db-manage.sh backup
+
+db-reset: ## Reset database (WARNING: deletes all data)
+	./scripts/db-manage.sh reset
 
 # Utilities
 clean: ## Clean up generated files

@@ -120,10 +120,31 @@ async def delete_policy_endpoint(policy_id: str):
 @app.get("/healthz")
 async def health_check():
     """Health check endpoint"""
-    return {
+    health_status = {
         "status": "ok",
-        "now": datetime.now().isoformat()
+        "now": datetime.now().isoformat(),
+        "components": {
+            "api": "healthy"
+        }
     }
+    
+    # Check database if enabled
+    try:
+        from ..database import is_db_available
+        db_available = is_db_available()
+        health_status["components"]["database"] = "healthy" if db_available else "disabled"
+    except Exception as e:
+        health_status["components"]["database"] = "unhealthy"
+    
+    # Check cache if enabled
+    try:
+        from ..cache import get_cache
+        cache = get_cache()
+        health_status["components"]["cache"] = "healthy" if cache.enabled else "disabled"
+    except Exception as e:
+        health_status["components"]["cache"] = "unhealthy"
+    
+    return health_status
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
@@ -159,6 +180,23 @@ async def flush_cache():
             "message": "Cache flushed successfully",
             "timestamp": datetime.now().isoformat()
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+@app.get("/mcp/database/info", tags=["Monitoring"])
+async def database_info():
+    """Get database statistics and information"""
+    try:
+        from ..database import is_db_available, get_analysis_store
+        
+        if not is_db_available():
+            return {"enabled": False, "message": "Database not configured"}
+        
+        analysis_store = get_analysis_store()
+        stats = analysis_store.get_statistics()
+        
+        return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail={"error": str(e)})
 
