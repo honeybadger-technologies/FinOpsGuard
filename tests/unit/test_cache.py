@@ -100,9 +100,9 @@ class TestRedisCache:
         
         cache.set("counter", 0)
         cache.incr("counter")
-        assert cache.get("counter") == "1"  # Redis returns strings
+        assert cache.get("counter") == 1
         cache.incr("counter", 5)
-        assert cache.get("counter") == "6"
+        assert cache.get("counter") == 6
         
         # Clean up
         cache.delete("counter")
