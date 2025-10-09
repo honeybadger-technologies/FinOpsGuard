@@ -3,6 +3,8 @@ API handlers for MCP endpoints
 """
 
 import base64
+import hashlib
+import json
 import time
 from datetime import datetime
 from typing import Dict, Any
@@ -19,9 +21,12 @@ from ..parsers.terraform import parse_terraform_to_crmodel
 from ..engine.simulation import simulate_cost
 from ..adapters.pricing.aws_static import list_aws_ec2_ondemand
 from ..storage.analyses import add_analysis, AnalysisRecord, list_analyses
+from ..cache import get_analysis_cache, get_pricing_cache
 
-# Initialize policy engine
+# Initialize policy engine and caches
 policy_engine = PolicyEngine()
+analysis_cache = get_analysis_cache()
+pricing_cache = get_pricing_cache()
 
 
 async def check_cost_impact(req: CheckRequest) -> CheckResponse:
@@ -31,17 +36,45 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
     if not req or not req.iac_type or not req.iac_payload:
         raise ValueError('invalid_request')
     
+    # Create request hash for caching
+    request_hash = hashlib.sha256(
+        json.dumps({
+            "iac_type": req.iac_type,
+            "iac_payload": req.iac_payload,
+            "environment": req.environment,
+            "budget_rules": req.budget_rules.model_dump() if req.budget_rules else None
+        }, sort_keys=True).encode()
+    ).hexdigest()[:32]
+    
+    # Check cache first
+    cached_result = analysis_cache.get_full_analysis(request_hash)
+    if cached_result:
+        # Return cached result with updated timestamp
+        cached_result['duration_ms'] = max(1, int(time.time() * 1000) - start_time)
+        return CheckResponse(**cached_result)
+    
+    # Parse IaC
     cr_model = None
     if req.iac_type == 'terraform':
         try:
             decoded = base64.b64decode(req.iac_payload).decode('utf-8')
         except Exception:
             raise ValueError('invalid_payload_encoding')
-        cr_model = parse_terraform_to_crmodel(decoded)
+        
+        # Try to get cached parsed Terraform
+        cached_parsed = analysis_cache.get_parsed_terraform(decoded)
+        if cached_parsed:
+            from ..types.models import CanonicalResourceModel
+            cr_model = CanonicalResourceModel(**cached_parsed)
+        else:
+            cr_model = parse_terraform_to_crmodel(decoded)
+            # Cache the parsed result
+            analysis_cache.set_parsed_terraform(decoded, cr_model.model_dump())
     else:
         from ..types.models import CanonicalResourceModel
         cr_model = CanonicalResourceModel(resources=[])
     
+    # Simulate cost
     sim = simulate_cost(cr_model)
     duration_ms = max(1, int(time.time() * 1000) - start_time)
     
@@ -107,6 +140,9 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
         summary=f"monthly={response.estimated_monthly_cost:.2f} resources={len(response.breakdown_by_resource)}"
     ))
     
+    # Cache the full analysis result
+    analysis_cache.set_full_analysis(request_hash, response.model_dump())
+    
     return response
 
 
@@ -169,6 +205,15 @@ async def evaluate_policy(req: PolicyRequest) -> PolicyResponse:
 
 async def get_price_catalog(req: PriceQuery) -> PriceCatalogResponse:
     """Get price catalog for cloud resources"""
+    
+    # Try to get from cache first
+    cached_catalog = pricing_cache.get_price_catalog(
+        cloud=req.cloud,
+        instance_types=req.instance_types
+    )
+    if cached_catalog:
+        return PriceCatalogResponse(**cached_catalog)
+    
     items = []
     
     if req.cloud == 'aws':
@@ -205,11 +250,20 @@ async def get_price_catalog(req: PriceQuery) -> PriceCatalogResponse:
                         }
                     ))
     
-    return PriceCatalogResponse(
+    response = PriceCatalogResponse(
         updated_at=datetime.now().isoformat(),
         pricing_confidence='high' if items else 'low',
         items=items
     )
+    
+    # Cache the catalog
+    pricing_cache.set_price_catalog(
+        cloud=req.cloud,
+        catalog_data=response.model_dump(),
+        instance_types=req.instance_types
+    )
+    
+    return response
 
 
 async def list_recent_analyses(req: ListQuery) -> ListResponse:
@@ -389,6 +443,9 @@ async def update_policy(policy_id: str, policy_data: Dict[str, Any]) -> Dict[str
     if not success:
         raise ValueError(f"Failed to update policy {policy_id}")
     
+    # Invalidate cache for this policy
+    analysis_cache.invalidate_policy(policy_id)
+    
     return {
         "id": policy.id,
         "name": policy.name,
@@ -403,5 +460,8 @@ async def delete_policy(policy_id: str) -> Dict[str, Any]:
     success = policy_engine.remove_policy(policy_id)
     if not success:
         raise ValueError(f"Policy {policy_id} not found")
+    
+    # Invalidate cache for this policy
+    analysis_cache.invalidate_policy(policy_id)
     
     return {"message": f"Policy {policy_id} deleted successfully"}

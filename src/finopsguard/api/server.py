@@ -135,6 +135,34 @@ async def metrics():
         raise HTTPException(status_code=500, detail={"error": "metrics_unavailable"})
 
 
+@app.get("/mcp/cache/info", tags=["Monitoring"])
+async def cache_info():
+    """Get cache statistics and information"""
+    from ..cache import get_cache
+    try:
+        cache = get_cache()
+        return cache.info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+@app.post("/mcp/cache/flush", tags=["Monitoring"])
+async def flush_cache():
+    """Flush all cached data (admin operation)"""
+    from ..cache import get_cache
+    from datetime import datetime
+    try:
+        cache = get_cache()
+        cache.flush()
+        
+        return {
+            "message": "Cache flushed successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
 # Mount static files for admin UI
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

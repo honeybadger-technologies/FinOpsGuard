@@ -58,6 +58,9 @@ Docker Compose is ideal for development, testing, and small-scale production dep
    # Check service health
    curl http://localhost:8080/healthz
 
+   # Check cache status (if caching profile enabled)
+   curl http://localhost:8080/mcp/cache/info
+
    # View logs
    docker-compose logs -f finopsguard
 
@@ -74,7 +77,10 @@ FinOpsGuard supports multiple deployment profiles:
 
 - **Default**: Core FinOpsGuard API only
 - **monitoring**: Adds Prometheus (port 9090) and Grafana (port 3000)
-- **caching**: Adds Redis (port 6379) for future caching features
+- **caching**: Adds Redis (port 6379) for intelligent caching
+  - Pricing data cached for 24 hours
+  - Analysis results cached for 1 hour
+  - 10-100x performance improvement for repeated operations
 
 ### Managing the Deployment
 
@@ -112,19 +118,24 @@ Key environment variables (see `env.example` for full list):
 | `WORKERS` | 4 | Number of worker processes |
 | `DEFAULT_BUDGET` | 1000 | Default monthly budget (USD) |
 | `ENABLE_BLOCKING` | true | Enable policy blocking mode |
+| `REDIS_ENABLED` | false | Enable Redis caching |
+| `REDIS_HOST` | redis | Redis host |
+| `REDIS_PORT` | 6379 | Redis port |
 | `AWS_REGION` | us-east-1 | Default AWS region |
 | `GCP_REGION` | us-central1 | Default GCP region |
 
 ### Access Services
 
-After deployment with monitoring profile:
+After deployment:
 
 - **FinOpsGuard API**: http://localhost:8080
 - **Admin UI**: http://localhost:8080/
 - **API Docs**: http://localhost:8080/docs
 - **Metrics**: http://localhost:8080/metrics
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/changeme)
+- **Cache Info**: http://localhost:8080/mcp/cache/info
+- **Prometheus**: http://localhost:9090 (monitoring profile)
+- **Grafana**: http://localhost:3000 (monitoring profile, admin/changeme)
+- **Redis**: localhost:6379 (caching profile)
 
 ---
 

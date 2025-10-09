@@ -38,6 +38,28 @@ recommendations_total = Counter(
     registry=registry
 )
 
+# Cache metrics
+cache_hits = Counter(
+    'finops_cache_hits_total',
+    'Total number of cache hits',
+    ['cache_type'],  # pricing, analysis, terraform
+    registry=registry
+)
+
+cache_misses = Counter(
+    'finops_cache_misses_total',
+    'Total number of cache misses',
+    ['cache_type'],
+    registry=registry
+)
+
+cache_errors = Counter(
+    'finops_cache_errors_total',
+    'Total number of cache errors',
+    ['cache_type', 'operation'],  # get, set, delete
+    registry=registry
+)
+
 
 def get_metrics_text() -> str:
     """Get Prometheus metrics in text format"""

@@ -9,12 +9,21 @@ docker-compose up -d
 
 # With monitoring (Prometheus + Grafana)
 docker-compose --profile monitoring up -d
+
+# With caching (Redis)
+docker-compose --profile caching up -d
+
+# Full stack (monitoring + caching)
+docker-compose --profile monitoring --profile caching up -d
 ```
 
 ### 2. Verify
 ```bash
 # Check health
 curl http://localhost:8080/healthz
+
+# Check cache status
+curl http://localhost:8080/mcp/cache/info
 
 # Open Admin UI
 open http://localhost:8080/
@@ -100,6 +109,7 @@ make docker-run      # Run container
 ```bash
 make docker-compose-up              # Start services
 make docker-compose-up-monitoring   # Start with monitoring
+make docker-compose-up-all          # Start with monitoring + caching
 make docker-compose-logs            # View logs
 make docker-compose-down            # Stop services
 ```
@@ -121,6 +131,7 @@ make k8s-delete      # Delete deployment
 - **FinOpsGuard**: http://localhost:8080
 - **Prometheus**: http://localhost:9090 (monitoring profile)
 - **Grafana**: http://localhost:3000 (monitoring profile, admin/changeme)
+- **Redis**: localhost:6379 (caching profile)
 
 ### Kubernetes
 - **Internal**: http://finopsguard.finopsguard.svc.cluster.local:8080
@@ -134,6 +145,9 @@ make k8s-delete      # Delete deployment
 ```bash
 # Health check
 curl http://localhost:8080/healthz
+
+# Check cache status
+curl http://localhost:8080/mcp/cache/info
 
 # Get price catalog
 curl -X POST http://localhost:8080/mcp/getPriceCatalog \
