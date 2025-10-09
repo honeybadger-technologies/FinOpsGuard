@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from .handlers import (
     check_cost_impact, suggest_optimizations, evaluate_policy,
@@ -19,12 +20,32 @@ from ..types.api import (
 )
 from ..metrics.prometheus import get_metrics_text
 
+# Import auth endpoints
+from .auth_endpoints import router as auth_router
 
 app = FastAPI(
     title="FinOpsGuard",
     description="MCP agent providing cost-aware guardrails for IaC in CI/CD",
-    version="0.1.0"
+    version="0.2.0"
 )
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add authentication middleware (if enabled)
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
+if AUTH_ENABLED:
+    from ..auth.middleware import auth_middleware
+    app.middleware("http")(auth_middleware)
+
+# Include authentication router
+app.include_router(auth_router)
 
 
 @app.post("/mcp/checkCostImpact")

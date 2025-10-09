@@ -46,6 +46,9 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for both AWS and GCP
 - ✅ **Policy Engine**: Budget and rule-based policies with DSL support
 - ✅ **Blocking Mode**: Policy violations can block deployments
+- ✅ **Authentication**: API keys, JWT tokens, OAuth2 (GitHub/Google/Azure), mTLS support
+- ✅ **RBAC**: Role-based access control (admin, user, viewer, api)
+- ✅ **PostgreSQL Storage**: Persistent policies and analysis history
 - ✅ **Redis Caching**: Intelligent caching for pricing data and analysis results with automatic TTL management
 - ✅ **Multi-Cloud Support**: 
   - **AWS**: EC2, RDS, EKS, ElastiCache, DynamoDB, Redshift, OpenSearch, Load Balancers
@@ -61,6 +64,7 @@ src/finopsguard/
   adapters/
     pricing/           # Cloud pricing adapters (AWS and GCP static data)
     usage/             # Historical usage adapters (future)
+  auth/                # Authentication & authorization (API keys, JWT, OAuth2, mTLS)
   cache/               # Redis caching layer (pricing, analysis, policies)
   database/            # PostgreSQL persistent storage (policies, analyses)
   engine/              # Cost simulation and policy evaluation
@@ -74,8 +78,8 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (100+ tests including cache tests)
-  integration/         # Integration tests (14 tests)
+  unit/                # Unit tests (120+ tests: auth, cache, database, pricing, policies)
+  integration/         # Integration tests (16 tests)
 
 static/                # Admin UI static files
   css/                 # Stylesheets
@@ -100,6 +104,7 @@ docs/
   deployment.md        # Deployment guide (Docker Compose & Kubernetes)
   integrations.md      # MCP agent integration examples (12+ platforms)
   database.md          # PostgreSQL configuration and management
+  authentication.md    # Authentication & authorization guide (API keys, JWT, OAuth2, mTLS)
 
 deploy/
   kubernetes/          # Kubernetes manifests
@@ -296,8 +301,8 @@ PYTHONPATH=src pytest tests/ -v
 ```
 
 ### Test Categories
-- **Unit Tests** (100+ tests): Core business logic, policy engine, cost simulation, AWS pricing, GCP pricing, caching layer
-- **Integration Tests** (14 tests): HTTP endpoints, API workflows, error handling
+- **Unit Tests** (120+ tests): Core business logic, policy engine, cost simulation, AWS pricing, GCP pricing, caching layer, authentication, database
+- **Integration Tests** (16 tests): HTTP endpoints, API workflows, error handling
 
 ### Test Coverage
 - ✅ Policy engine evaluation and blocking logic
@@ -306,6 +311,9 @@ PYTHONPATH=src pytest tests/ -v
 - ✅ AWS pricing adapter with static pricing data
 - ✅ GCP pricing adapter with comprehensive static pricing data
 - ✅ Redis caching layer (pricing, analysis, TTL management)
+- ✅ PostgreSQL database layer (policies, analyses, hybrid storage)
+- ✅ Authentication (API keys, JWT, OAuth2, mTLS)
+- ✅ RBAC and authorization
 - ✅ API endpoints with request/response validation
 - ✅ Error handling and edge cases
 - ✅ Admin UI functionality and policy management
@@ -900,6 +908,67 @@ make db-shell
 
 **See [docs/database.md](docs/database.md) for comprehensive database documentation.**
 
+## Authentication & Security
+
+FinOpsGuard supports multiple authentication methods for enterprise security:
+
+### Authentication Methods
+
+1. **API Keys** - For CI/CD and automation
+2. **JWT Tokens** - For web UI and CLI
+3. **OAuth2** - SSO with GitHub, Google, Azure AD
+4. **mTLS** - Certificate-based service authentication
+
+### Enable Authentication
+
+```bash
+# Basic setup
+AUTH_ENABLED=true
+AUTH_MODE=api_key
+JWT_SECRET=$(openssl rand -base64 32)
+ADMIN_PASSWORD=<secure-password>
+```
+
+### Create API Key
+
+```bash
+# Login as admin
+TOKEN=$(curl -X POST http://localhost:8080/auth/login \
+  -d '{"username":"admin","password":"admin"}' | jq -r '.access_token')
+
+# Create API key
+API_KEY=$(curl -X POST http://localhost:8080/auth/api-keys \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"name":"CI/CD","roles":["api"],"expires_days":365}' | jq -r '.api_key')
+
+# Use in CI/CD
+export FINOPSGUARD_API_KEY=$API_KEY
+```
+
+### Use Authentication
+
+```bash
+# API Key
+curl -H 'X-API-Key: fops_xxxxx' http://finopsguard:8080/mcp/checkCostImpact ...
+
+# JWT Token
+curl -H 'Authorization: Bearer eyJhbGc...' http://finopsguard:8080/mcp/checkCostImpact ...
+
+# mTLS
+curl --cert client.crt --key client.key https://finopsguard:8080/mcp/checkCostImpact ...
+```
+
+### Role-Based Access Control
+
+| Role | Permissions |
+|------|-------------|
+| **admin** | Full access to all operations |
+| **user** | Read/write policies, run analyses |
+| **viewer** | Read-only access |
+| **api** | API access for service accounts |
+
+**See [docs/authentication.md](docs/authentication.md) for comprehensive authentication documentation.**
+
 ## Caching
 
 FinOpsGuard uses Redis for intelligent caching to dramatically improve performance:
@@ -1000,12 +1069,13 @@ For comprehensive deployment documentation, see:
 - ✅ Admin UI with modern web interface
 - ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
 - ✅ GCP Pricing Adapter with full resource support
+- ✅ Authentication & Authorization (API keys, JWT, OAuth2, mTLS, RBAC)
 - ✅ PostgreSQL persistent storage for policies and analysis history
 - ✅ Redis caching for pricing data and analysis results (10-100x performance boost)
 - ✅ Docker Compose deployment with full stack (database + caching + monitoring)
 - ✅ Kubernetes deployment with HA and auto-scaling
 - ✅ MCP agent integration with 12+ platforms
-- ✅ Complete test suite (110+ tests)
+- ✅ Complete test suite (125+ tests)
 
 ### Next Phase (0.3)
 - **Azure Pricing Adapter**: Extend beyond AWS and GCP
@@ -1022,7 +1092,8 @@ For comprehensive deployment documentation, see:
 - **Advanced Policies**: Time-based rules, dependency-aware policies
 
 ### Technical Debt & Improvements
-- **Authentication**: mTLS/OAuth2 integration
-- **RBAC**: Role-based access control
-- **Multi-tenancy**: Organization and team isolation
+- **User Database**: PostgreSQL storage for users and sessions
+- **Multi-tenancy**: Organization and team isolation  
+- **Advanced RBAC**: Fine-grained permissions and resource-level access control
 - **Monitoring**: Enhanced observability and alerting
+- **Audit Logging**: Detailed access logs and compliance reporting
