@@ -66,6 +66,67 @@ if AUDIT_MIDDLEWARE_ENABLED:
     app.add_middleware(AuditMiddleware)
 
 
+@app.get("/mcp")
+async def mcp_info():
+    """
+    MCP Protocol Information.
+    
+    Returns information about available MCP endpoints and the protocol version.
+    """
+    return {
+        "protocol": "MCP",
+        "version": "0.3.0",
+        "service": "FinOpsGuard",
+        "description": "Cost-aware guardrails for IaC in CI/CD",
+        "endpoints": {
+            "cost_analysis": {
+                "path": "/mcp/checkCostImpact",
+                "method": "POST",
+                "description": "Analyze Terraform changes and estimate cost impact"
+            },
+            "policy_evaluation": {
+                "path": "/mcp/evaluatePolicy",
+                "method": "POST",
+                "description": "Evaluate policies with blocking/advisory mode"
+            },
+            "optimizations": {
+                "path": "/mcp/suggestOptimizations",
+                "method": "POST",
+                "description": "Get cost optimization recommendations"
+            },
+            "pricing": {
+                "path": "/mcp/getPriceCatalog",
+                "method": "POST",
+                "description": "Get cloud pricing information"
+            },
+            "history": {
+                "path": "/mcp/listRecentAnalyses",
+                "method": "POST",
+                "description": "List recent cost analyses"
+            },
+            "policies": {
+                "path": "/mcp/policies",
+                "method": "GET",
+                "description": "List all policies"
+            }
+        },
+        "documentation": {
+            "openapi": "/docs",
+            "interactive": "/",
+            "health": "/healthz",
+            "metrics": "/metrics"
+        },
+        "features": [
+            "Multi-cloud support (AWS, GCP, Azure)",
+            "Policy-based cost governance",
+            "Real-time pricing data",
+            "Historical usage integration",
+            "Audit logging and compliance",
+            "CI/CD integration (GitHub, GitLab)"
+        ]
+    }
+
+
 @app.post("/mcp/checkCostImpact")
 async def check_cost_impact_endpoint(request: CheckRequest):
     """Check cost impact of IaC changes"""
