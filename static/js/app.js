@@ -93,6 +93,12 @@ class FinOpsGuardAdmin {
                     this.analytics.loadAnalytics();
                 }
                 break;
+            case 'audit':
+                if (typeof loadAuditStatus === 'function') {
+                    loadAuditStatus();
+                    loadAuditLogs();
+                }
+                break;
         }
     }
 

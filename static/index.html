@@ -29,6 +29,9 @@
                 <a href="#analytics" class="nav-link" data-section="analytics">
                     <i class="fas fa-chart-area"></i> Analytics
                 </a>
+                <a href="#audit" class="nav-link" data-section="audit">
+                    <i class="fas fa-shield-alt"></i> Audit
+                </a>
                 <a href="#settings" class="nav-link" data-section="settings">
                     <i class="fas fa-cog"></i> Settings
                 </a>
@@ -386,6 +389,146 @@
             </div>
         </section>
 
+        <!-- Audit Section -->
+        <section id="audit" class="content-section">
+            <div class="section-header">
+                <h1><i class="fas fa-shield-alt"></i> Audit Logs & Compliance</h1>
+                <p>Security monitoring, compliance reporting, and audit trail</p>
+            </div>
+
+            <!-- Audit Status -->
+            <div class="audit-status-banner" id="audit-status-banner">
+                <div class="loading">Checking audit logging status...</div>
+            </div>
+
+            <!-- Compliance Quick Stats -->
+            <div class="compliance-stats">
+                <div class="compliance-stat-card">
+                    <div class="compliance-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="compliance-content">
+                        <h4>Compliance Rate</h4>
+                        <h2 id="compliance-rate">—</h2>
+                        <span class="compliance-trend" id="compliance-trend">—</span>
+                    </div>
+                </div>
+                <div class="compliance-stat-card">
+                    <div class="compliance-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="compliance-content">
+                        <h4>Policy Violations</h4>
+                        <h2 id="policy-violations-count">—</h2>
+                        <span class="compliance-trend" id="violations-trend">Last 30 days</span>
+                    </div>
+                </div>
+                <div class="compliance-stat-card">
+                    <div class="compliance-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <div class="compliance-content">
+                        <h4>Auth Success Rate</h4>
+                        <h2 id="auth-success-rate">—</h2>
+                        <span class="compliance-trend" id="auth-trend">—</span>
+                    </div>
+                </div>
+                <div class="compliance-stat-card">
+                    <div class="compliance-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="compliance-content">
+                        <h4>Total Events</h4>
+                        <h2 id="total-audit-events">—</h2>
+                        <span class="compliance-trend" id="events-trend">Last 30 days</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Controls -->
+            <div class="audit-controls">
+                <div class="control-group">
+                    <label for="audit-date-range">Time Range:</label>
+                    <select id="audit-date-range" class="filter-select">
+                        <option value="1">Last 24 Hours</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="audit-event-type">Event Type:</label>
+                    <select id="audit-event-type" class="filter-select">
+                        <option value="">All Events</option>
+                        <option value="api.request">API Requests</option>
+                        <option value="auth.login">Authentication</option>
+                        <option value="policy.violated">Policy Violations</option>
+                        <option value="data.exported">Data Exports</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="audit-severity">Severity:</label>
+                    <select id="audit-severity" class="filter-select">
+                        <option value="">All Severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="loadAuditLogs()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-secondary" onclick="exportAuditLogs()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+                <button class="btn btn-secondary" onclick="generateComplianceReport()">
+                    <i class="fas fa-file-alt"></i> Compliance Report
+                </button>
+            </div>
+
+            <!-- Audit Logs Table -->
+            <div class="audit-table-card">
+                <div class="table-header">
+                    <h3><i class="fas fa-list"></i> Audit Event Log</h3>
+                    <input type="text" id="audit-search" placeholder="Search events..." class="search-input-sm">
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Event Type</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Status</th>
+                                <th>IP Address</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-table-body">
+                            <tr>
+                                <td colspan="7" class="loading">Loading audit logs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Compliance Report Card -->
+            <div class="compliance-report-card" id="compliance-report" style="display: none;">
+                <div class="report-header">
+                    <h3><i class="fas fa-file-contract"></i> Compliance Report</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="closeComplianceReport()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+                <div class="report-content" id="compliance-report-content">
+                    <!-- Report content will be loaded here -->
+                </div>
+            </div>
+        </section>
+
         <!-- Settings Section -->
         <section id="settings" class="content-section">
             <div class="section-header">
@@ -547,5 +690,6 @@
 
     <script src="/static/js/app.js"></script>
     <script src="/static/js/analytics.js"></script>
+    <script src="/static/js/audit.js"></script>
 </body>
 </html>

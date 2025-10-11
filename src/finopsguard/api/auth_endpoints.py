@@ -2,9 +2,8 @@
 
 import os
 import logging
-# datetime imports as needed
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 
 from ..auth.models import (
     User, Role, LoginRequest, TokenResponse,
@@ -41,26 +40,49 @@ def _get_users_db():
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(login_req: LoginRequest):
+async def login(login_req: LoginRequest, request: Request):
     """
     Authenticate and get access token.
     
     Args:
         login_req: Login credentials
+        request: FastAPI request for audit logging
         
     Returns:
         Access token
     """
+    from finopsguard.audit import get_audit_logger
+    audit_logger = get_audit_logger()
+    
+    # Get client IP for audit logging
+    ip_address = request.client.host if request.client else "unknown"
+    
     users_db = _get_users_db()
     user_data = users_db.get(login_req.username)
     
     if not user_data:
+        # Log failed authentication
+        audit_logger.log_authentication(
+            username=login_req.username,
+            success=False,
+            ip_address=ip_address,
+            auth_method="password",
+            error_message="User not found"
+        )
         raise HTTPException(
             status_code=401,
             detail={"error": "invalid_credentials"}
         )
     
     if not verify_password(login_req.password, user_data["hashed_password"]):
+        # Log failed authentication
+        audit_logger.log_authentication(
+            username=login_req.username,
+            success=False,
+            ip_address=ip_address,
+            auth_method="password",
+            error_message="Invalid password"
+        )
         raise HTTPException(
             status_code=401,
             detail={"error": "invalid_credentials"}

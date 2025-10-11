@@ -26,6 +26,9 @@ from .auth_endpoints import router as auth_router
 # Import usage endpoints
 from .usage_endpoints import router as usage_router
 
+# Import audit endpoints
+from .audit_endpoints import router as audit_router
+
 app = FastAPI(
     title="FinOpsGuard",
     description="MCP agent providing cost-aware guardrails for IaC in CI/CD",
@@ -52,6 +55,15 @@ app.include_router(auth_router)
 
 # Include usage integration router
 app.include_router(usage_router)
+
+# Include audit logging router
+app.include_router(audit_router)
+
+# Add audit logging middleware
+AUDIT_MIDDLEWARE_ENABLED = os.getenv("AUDIT_MIDDLEWARE_ENABLED", "true").lower() == "true"
+if AUDIT_MIDDLEWARE_ENABLED:
+    from finopsguard.audit.middleware import AuditMiddleware
+    app.add_middleware(AuditMiddleware)
 
 
 @app.post("/mcp/checkCostImpact")

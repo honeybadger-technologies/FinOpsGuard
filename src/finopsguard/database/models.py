@@ -7,6 +7,59 @@ from sqlalchemy.sql import func
 Base = declarative_base()
 
 
+class AuditLog(Base):
+    """Audit log database model."""
+    
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String(32), unique=True, index=True, nullable=False)
+    
+    # Event classification
+    event_type = Column(String(50), index=True, nullable=False)
+    severity = Column(String(20), index=True, nullable=False)
+    timestamp = Column(DateTime, server_default=func.now(), index=True, nullable=False)
+    
+    # Actor information
+    user_id = Column(String(100), index=True)
+    username = Column(String(100), index=True)
+    user_role = Column(String(50))
+    api_key_name = Column(String(100))
+    
+    # Source information
+    ip_address = Column(String(45))  # IPv6 support
+    user_agent = Column(String(500))
+    request_id = Column(String(100), index=True)
+    
+    # Action details
+    action = Column(String(500), nullable=False)
+    resource_type = Column(String(100), index=True)
+    resource_id = Column(String(200), index=True)
+    
+    # Event data
+    details = Column(JSON)
+    success = Column(Boolean, index=True, default=True)
+    error_message = Column(Text)
+    
+    # HTTP context
+    http_method = Column(String(10))
+    http_path = Column(String(500))
+    http_status = Column(Integer)
+    
+    # Compliance
+    compliance_tags = Column(JSON)
+    
+    # Additional metadata (renamed from 'metadata' which is reserved)
+    event_metadata = Column(JSON)
+    
+    # Indexes for common queries
+    __table_args__ = (
+        Index('idx_audit_timestamp_type', 'timestamp', 'event_type'),
+        Index('idx_audit_user_timestamp', 'username', 'timestamp'),
+        Index('idx_audit_resource', 'resource_type', 'resource_id'),
+    )
+
+
 class Policy(Base):
     """Policy database model."""
     
