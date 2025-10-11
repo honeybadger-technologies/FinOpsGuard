@@ -23,6 +23,9 @@ from ..metrics.prometheus import get_metrics_text
 # Import auth endpoints
 from .auth_endpoints import router as auth_router
 
+# Import usage endpoints
+from .usage_endpoints import router as usage_router
+
 app = FastAPI(
     title="FinOpsGuard",
     description="MCP agent providing cost-aware guardrails for IaC in CI/CD",
@@ -46,6 +49,9 @@ if AUTH_ENABLED:
 
 # Include authentication router
 app.include_router(auth_router)
+
+# Include usage integration router
+app.include_router(usage_router)
 
 
 @app.post("/mcp/checkCostImpact")

@@ -42,10 +42,15 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **PR/MR Comments**: Automated posting of cost analysis results
 
 ### Features
-- ✅ **Terraform Parser**: Full HCL parsing with support for AWS and GCP resources
-- ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for both AWS and GCP
+- ✅ **Terraform Parser**: Full HCL parsing with support for AWS, GCP, and Azure resources
+- ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for multi-cloud infrastructure
 - ✅ **Policy Engine**: Budget and rule-based policies with DSL support
 - ✅ **Blocking Mode**: Policy violations can block deployments
+- ✅ **Real-time Pricing**: Live pricing APIs for AWS, GCP, and Azure with intelligent fallback
+- ✅ **Usage Integration**: Historical usage data from CloudWatch, Cloud Monitoring, and Azure Monitor
+  - **AWS**: CloudWatch metrics and Cost Explorer for actual resource usage and billing
+  - **GCP**: Cloud Monitoring metrics and BigQuery billing export for usage analytics
+  - **Azure**: Azure Monitor metrics and Cost Management for cost and usage tracking
 - ✅ **Authentication**: API keys, JWT tokens, OAuth2 (GitHub/Google/Azure), mTLS support
 - ✅ **RBAC**: Role-based access control (admin, user, viewer, api)
 - ✅ **PostgreSQL Storage**: Persistent policies and analysis history
@@ -53,6 +58,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - ✅ **Multi-Cloud Support**: 
   - **AWS**: EC2, RDS, EKS, ElastiCache, DynamoDB, Redshift, OpenSearch, Load Balancers
   - **GCP**: Compute Engine, Cloud SQL, GKE, Cloud Run, Cloud Functions, Load Balancers, Redis, BigQuery
+  - **Azure**: Virtual Machines, SQL Database, Storage, AKS, App Service, Functions, Load Balancer, Redis, Cosmos DB
 - ✅ **Auto-generated OpenAPI**: Complete API documentation at `/docs`
 - ✅ **Admin UI**: Modern web interface for management and monitoring
 - ✅ **CI/CD Integration**: Seamless integration with GitHub Actions and GitLab CI
@@ -62,8 +68,8 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 src/finopsguard/
   api/                 # FastAPI server and MCP endpoints
   adapters/
-    pricing/           # Cloud pricing adapters (AWS and GCP static data)
-    usage/             # Historical usage adapters (future)
+    pricing/           # Cloud pricing adapters (static + live APIs for AWS/GCP/Azure)
+    usage/             # Historical usage adapters (CloudWatch, Monitoring, Cost Management)
   auth/                # Authentication & authorization (API keys, JWT, OAuth2, mTLS)
   cache/               # Redis caching layer (pricing, analysis, policies)
   database/            # PostgreSQL persistent storage (policies, analyses)
@@ -105,6 +111,7 @@ docs/
   integrations.md      # MCP agent integration examples (12+ platforms)
   database.md          # PostgreSQL configuration and management
   authentication.md    # Authentication & authorization guide (API keys, JWT, OAuth2, mTLS)
+  pricing.md           # Real-time and static pricing configuration
 
 deploy/
   kubernetes/          # Kubernetes manifests
@@ -247,6 +254,41 @@ curl -sS -X POST "http://localhost:8080/mcp/policies" \
 
 # List all policies
 curl -sS http://localhost:8080/mcp/policies
+```
+
+### Usage Integration & Historical Data
+Get actual usage metrics and billing data from cloud providers:
+
+```bash
+# Check if usage integration is available
+curl -sS http://localhost:8080/usage/availability
+
+# Get CloudWatch metrics for an EC2 instance (last 7 days)
+curl -sS -X POST "http://localhost:8080/usage/resource" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "cloud_provider": "aws",
+    "resource_id": "i-1234567890abcdef0",
+    "resource_type": "ec2",
+    "start_time": "2024-01-01T00:00:00Z",
+    "end_time": "2024-01-31T23:59:59Z",
+    "region": "us-east-1",
+    "metrics": ["CPUUtilization", "NetworkIn", "NetworkOut"]
+  }'
+
+# Get historical cost data from AWS Cost Explorer
+curl -sS -X POST "http://localhost:8080/usage/cost" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "cloud_provider": "aws",
+    "start_time": "2024-01-01T00:00:00Z",
+    "end_time": "2024-01-31T23:59:59Z",
+    "granularity": "DAILY",
+    "group_by": ["service", "region"]
+  }'
+
+# Get usage example for last 7 days
+curl -sS http://localhost:8080/usage/example/aws?days=7
 ```
 
 ### GCP Cost Analysis
@@ -908,6 +950,52 @@ make db-shell
 
 **See [docs/database.md](docs/database.md) for comprehensive database documentation.**
 
+## Real-time Pricing
+
+FinOpsGuard supports live pricing APIs for accurate cost estimates:
+
+### Pricing Sources
+
+| Provider | API | Authentication | Status |
+|----------|-----|----------------|--------|
+| **AWS** | AWS Pricing API | IAM credentials | ✅ Supported |
+| **GCP** | Cloud Billing API | API key/Service account | ✅ Supported |
+| **Azure** | Retail Prices API | None (public) | ✅ Supported |
+
+### Enable Live Pricing
+
+```bash
+# Enable real-time pricing
+LIVE_PRICING_ENABLED=true
+PRICING_FALLBACK_TO_STATIC=true
+
+# AWS Pricing API
+AWS_PRICING_ENABLED=true
+AWS_ACCESS_KEY_ID=<your-access-key>
+AWS_SECRET_ACCESS_KEY=<your-secret-key>
+
+# GCP Cloud Billing API
+GCP_PRICING_ENABLED=true
+GCP_PRICING_API_KEY=<your-api-key>
+
+# Azure Retail Prices API (no auth needed!)
+AZURE_PRICING_ENABLED=true
+```
+
+### Pricing Modes
+
+- **Live Only**: Most accurate, requires API credentials
+- **Static Only**: Fast, no credentials, may be outdated
+- **Hybrid (Recommended)**: Live with static fallback
+
+**Benefits of Hybrid Mode:**
+- ✅ Accurate pricing when APIs available
+- ✅ Graceful fallback if APIs fail
+- ✅ No downtime due to pricing issues
+- ✅ Automatic caching reduces API calls by 90%+
+
+**See [docs/pricing.md](docs/pricing.md) for comprehensive pricing documentation.**
+
 ## Authentication & Security
 
 FinOpsGuard supports multiple authentication methods for enterprise security:
@@ -1064,26 +1152,27 @@ For comprehensive deployment documentation, see:
 ### ✅ MVP+ (0.2) - COMPLETED
 - ✅ Policy engine with DSL and blocking mode
 - ✅ Comprehensive Terraform parser
-- ✅ Multi-resource cost simulation (AWS + GCP)
+- ✅ Multi-cloud cost simulation (AWS + GCP + Azure)
+- ✅ Real-time pricing APIs (AWS Pricing API, GCP Cloud Billing API, Azure Retail Prices API)
+- ✅ Intelligent pricing fallback (live → static → default)
 - ✅ Policy management API
 - ✅ Admin UI with modern web interface
 - ✅ CI/CD integration (GitHub Actions, GitLab CI, CLI, Universal Script)
-- ✅ GCP Pricing Adapter with full resource support
 - ✅ Authentication & Authorization (API keys, JWT, OAuth2, mTLS, RBAC)
 - ✅ PostgreSQL persistent storage for policies and analysis history
 - ✅ Redis caching for pricing data and analysis results (10-100x performance boost)
 - ✅ Docker Compose deployment with full stack (database + caching + monitoring)
 - ✅ Kubernetes deployment with HA and auto-scaling
 - ✅ MCP agent integration with 12+ platforms
-- ✅ Complete test suite (125+ tests)
+- ✅ Complete test suite (135+ tests)
 
 ### Next Phase (0.3)
-- **Azure Pricing Adapter**: Extend beyond AWS and GCP
-- **Real-time Pricing**: Live pricing API integration for accurate cost analysis
+- **Azure Terraform Parser**: Complete Azure resource parsing
+- **Usage Integration**: CloudWatch/Billing API for historical data
 - **Enhanced Caching**: Distributed caching with Redis Cluster
-- **Usage Integration**: CloudWatch/Billing API integration
-- **Enhanced Admin UI**: Advanced analytics and reporting
+- **Enhanced Admin UI**: Advanced analytics and reporting dashboards
 - **Multi-tenant Support**: Organization and team management
+- **Webhooks**: Event-driven notifications for cost anomalies
 
 ### Future (0.4+)
 - **ML Cost Forecasting**: Seasonal patterns and usage prediction
