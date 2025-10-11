@@ -11,10 +11,34 @@ DOCKER_TAG := latest
 K8S_NAMESPACE := finopsguard
 
 help: ## Show this help message
+	@echo '╔════════════════════════════════════════════════════════════════════════╗'
+	@echo '║                         FinOpsGuard - Makefile                         ║'
+	@echo '╚════════════════════════════════════════════════════════════════════════╝'
+	@echo ''
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo 'Available targets:'
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo '📦 Development:'
+	@grep -E '^(venv|install|test|lint|format|run|clean):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ''
+	@echo '🐳 Docker:'
+	@grep -E '^docker-[^:]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ''
+	@echo '☸️  Kubernetes:'
+	@grep -E '^k8s-[^:]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ''
+	@echo '🗄️  Database:'
+	@grep -E '^db-[^:]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ''
+	@echo '🚀 CI/CD & Release:'
+	@grep -E '^(ci-|release|version|health-check|api-docs|metrics):.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ''
+	@echo 'Quick Start Examples:'
+	@echo '  make install          # Install dependencies'
+	@echo '  make test             # Run all tests'
+	@echo '  make docker-compose-up # Start with Docker Compose'
+	@echo '  make k8s-deploy       # Deploy to Kubernetes'
+	@echo '  make lint             # Run code linters'
+	@echo ''
 
 # Development
 venv: ## Create Python virtual environment

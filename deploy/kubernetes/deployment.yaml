@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: finopsguard
-        image: finopsguard:latest
+        image: zivshits/finopsguard:latest
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
