@@ -160,7 +160,7 @@ async def health_check():
         from ..database import is_db_available
         db_available = is_db_available()
         health_status["components"]["database"] = "healthy" if db_available else "disabled"
-    except Exception as e:
+    except Exception:
         health_status["components"]["database"] = "unhealthy"
     
     # Check cache if enabled
@@ -168,7 +168,7 @@ async def health_check():
         from ..cache import get_cache
         cache = get_cache()
         health_status["components"]["cache"] = "healthy" if cache.enabled else "disabled"
-    except Exception as e:
+    except Exception:
         health_status["components"]["cache"] = "unhealthy"
     
     return health_status

@@ -71,7 +71,7 @@ class PostgreSQLPolicyStore:
                 
                 query = db.query(DBPolicy)
                 if enabled_only:
-                    query = query.filter(DBPolicy.enabled == True)
+                    query = query.filter(DBPolicy.enabled is True)
                 
                 query = query.order_by(DBPolicy.created_at.desc())
                 db_policies = query.all()

@@ -6,8 +6,9 @@ as comments on GitHub pull requests.
 """
 
 import os
+import sys
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import requests
 
 

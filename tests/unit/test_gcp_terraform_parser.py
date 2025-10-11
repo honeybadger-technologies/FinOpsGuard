@@ -2,7 +2,6 @@
 Unit tests for GCP Terraform parser integration
 """
 
-import pytest
 from finopsguard.parsers.terraform import parse_terraform_to_crmodel
 
 
@@ -345,7 +344,7 @@ class TestGCPTerraformParser:
         resource_types = {r.type for r in result.resources}
         expected_types = {
             'gcp_compute_instance',
-            'gcp_sql_database_instance', 
+            'gcp_sql_database_instance',
             'gcp_container_cluster',
             'gcp_storage_bucket',
             'gcp_cloud_run_service'

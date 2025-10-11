@@ -2,8 +2,8 @@
 
 import os
 import pytest
-from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock, patch
+from datetime import datetime
+from unittest.mock import Mock, patch
 
 from finopsguard.types.usage import (
     ResourceUsage,
@@ -356,7 +356,7 @@ class TestAzureUsageAdapter:
         pytest.importorskip("azure.mgmt.monitor")
         
         with patch('azure.mgmt.monitor.MonitorManagementClient') as mock_monitor_class, \
-             patch('azure.identity.DefaultAzureCredential') as mock_credential:
+             patch('azure.identity.DefaultAzureCredential'):
             # Mock monitor client
             mock_client = Mock()
             mock_metric = Mock()
@@ -379,8 +379,10 @@ class TestAzureUsageAdapter:
             adapter._monitor = mock_client
             adapter._enabled = True
             
+            vm_id = ("/subscriptions/test/resourceGroups/test/"
+                     "providers/Microsoft.Compute/virtualMachines/test-vm")
             result = adapter.get_resource_usage(
-                resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Compute/virtualMachines/test-vm",
+                resource_id=vm_id,
                 resource_type="virtual_machine",
                 start_time=datetime(2024, 1, 1),
                 end_time=datetime(2024, 1, 2),

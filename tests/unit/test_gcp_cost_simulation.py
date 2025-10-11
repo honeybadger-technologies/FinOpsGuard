@@ -2,7 +2,6 @@
 Unit tests for GCP cost simulation integration
 """
 
-import pytest
 from finopsguard.engine.simulation import simulate_cost
 from finopsguard.types.models import CanonicalResourceModel, CanonicalResource
 

@@ -6,8 +6,9 @@ as comments on GitLab merge requests.
 """
 
 import os
+import sys
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import gitlab
 
 

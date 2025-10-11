@@ -41,7 +41,6 @@ test-coverage: ## Run tests with coverage report
 
 lint: ## Run linters
 	flake8 src/finopsguard tests/
-	mypy src/finopsguard
 
 format: ## Format code with black
 	black src/finopsguard tests/

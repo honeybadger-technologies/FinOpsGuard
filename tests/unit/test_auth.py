@@ -43,16 +43,28 @@ class TestJWTHandler:
         """Test password hashing and verification."""
         from finopsguard.auth.jwt_handler import get_password_hash, verify_password
         
-        password = "test123"  # Short password to avoid bcrypt issues
         try:
+            # Test with normal password
+            password = "test123"
             hashed = get_password_hash(password)
             
             assert hashed != password
             assert verify_password(password, hashed)
             assert not verify_password("wrong", hashed)
-        except ValueError as e:
-            # Skip if bcrypt has compatibility issues
-            pytest.skip(f"Bcrypt compatibility issue: {e}")
+            
+            # Test with long password (>72 bytes) - should be truncated
+            long_password = "a" * 100
+            hashed_long = get_password_hash(long_password)
+            assert verify_password(long_password, hashed_long)
+            
+            # Verify truncation works - first 72 bytes should match
+            truncated = "a" * 72
+            assert verify_password(truncated, hashed_long)
+        except (ValueError, AttributeError) as e:
+            # Skip if bcrypt has compatibility issues with passlib
+            if "72 bytes" in str(e) or "__about__" in str(e):
+                pytest.skip(f"Bcrypt/passlib compatibility issue (passlib needs update): {e}")
+            raise
 
 
 class TestAPIKey:

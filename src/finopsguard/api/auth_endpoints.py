@@ -2,9 +2,9 @@
 
 import os
 import logging
-from datetime import timedelta
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, Request
+# datetime imports as needed
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 
 from ..auth.models import (
     User, Role, LoginRequest, TokenResponse,
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Mock user database (in production, use PostgreSQL)
 _users_db = {}
+
 
 def _get_users_db():
     """Get users database with lazy password hashing."""

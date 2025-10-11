@@ -3,7 +3,7 @@
 import os
 import logging
 from datetime import datetime, timedelta, UTC
-from typing import Optional
+from typing import Optional, List
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -32,7 +32,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Truncate to 72 bytes for bcrypt compatibility
+        password_bytes = plain_password.encode('utf-8')[:72]
+        return pwd_context.verify(password_bytes, hashed_password)
+    except ValueError as e:
+        if "72 bytes" in str(e):
+            # Handle bcrypt length limit gracefully
+            logger.warning(f"Password too long for bcrypt: {e}")
+            return False
+        raise
 
 
 def get_password_hash(password: str) -> str:
@@ -45,7 +54,9 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hashed password
     """
-    return pwd_context.hash(password)
+    # Truncate to 72 bytes for bcrypt compatibility
+    password_bytes = password.encode('utf-8')[:72]
+    return pwd_context.hash(password_bytes)
 
 
 def create_access_token(

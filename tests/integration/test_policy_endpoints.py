@@ -2,7 +2,6 @@
 Integration tests for policy management endpoints
 """
 
-import pytest
 import base64
 from fastapi.testclient import TestClient
 from finopsguard.main import app

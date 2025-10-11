@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 
 from finopsguard.types.usage import (
     ResourceUsage,
-    CostUsageRecord,
     UsageSummary,
     UsageQuery
 )

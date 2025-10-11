@@ -52,12 +52,12 @@ class PostgreSQLAnalysisStore:
                     if part.startswith('monthly='):
                         try:
                             monthly_cost = float(part.split('=')[1])
-                        except:
+                        except (ValueError, IndexError):
                             pass
                     elif part.startswith('resources='):
                         try:
                             resource_count = int(part.split('=')[1])
-                        except:
+                        except (ValueError, IndexError):
                             pass
                 
                 # Extract data from result if provided

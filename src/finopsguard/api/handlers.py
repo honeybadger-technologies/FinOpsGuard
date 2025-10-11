@@ -15,7 +15,6 @@ from ..types.api import (
     ListQuery, ListResponse, PriceCatalogItem
 )
 from ..types.models import PolicyEvaluation
-from ..types.policy import Policy
 from ..engine.policy_engine import PolicyEngine
 from ..parsers.terraform import parse_terraform_to_crmodel
 from ..engine.simulation import simulate_cost

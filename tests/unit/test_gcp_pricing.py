@@ -2,7 +2,6 @@
 Unit tests for GCP pricing adapter
 """
 
-import pytest
 from finopsguard.adapters.pricing.gcp_static import (
     get_gcp_instance_price,
     get_gcp_database_price,
@@ -219,27 +218,27 @@ class TestGCPResourceDetection:
     
     def test_is_gcp_resource_known_types(self):
         """Test detection of known GCP resource types"""
-        assert is_gcp_resource("google_compute_instance") == True
-        assert is_gcp_resource("google_sql_database_instance") == True
-        assert is_gcp_resource("google_storage_bucket") == True
-        assert is_gcp_resource("google_container_cluster") == True
-        assert is_gcp_resource("google_cloud_run_service") == True
-        assert is_gcp_resource("google_cloudfunctions_function") == True
-        assert is_gcp_resource("google_compute_global_forwarding_rule") == True
-        assert is_gcp_resource("google_redis_instance") == True
-        assert is_gcp_resource("google_bigquery_dataset") == True
+        assert is_gcp_resource("google_compute_instance") is True
+        assert is_gcp_resource("google_sql_database_instance") is True
+        assert is_gcp_resource("google_storage_bucket") is True
+        assert is_gcp_resource("google_container_cluster") is True
+        assert is_gcp_resource("google_cloud_run_service") is True
+        assert is_gcp_resource("google_cloudfunctions_function") is True
+        assert is_gcp_resource("google_compute_global_forwarding_rule") is True
+        assert is_gcp_resource("google_redis_instance") is True
+        assert is_gcp_resource("google_bigquery_dataset") is True
     
     def test_is_gcp_resource_aws_types(self):
         """Test that AWS resource types are not detected as GCP"""
-        assert is_gcp_resource("aws_instance") == False
-        assert is_gcp_resource("aws_db_instance") == False
-        assert is_gcp_resource("aws_s3_bucket") == False
-        assert is_gcp_resource("aws_eks_cluster") == False
+        assert is_gcp_resource("aws_instance") is False
+        assert is_gcp_resource("aws_db_instance") is False
+        assert is_gcp_resource("aws_s3_bucket") is False
+        assert is_gcp_resource("aws_eks_cluster") is False
     
     def test_is_gcp_resource_unknown_types(self):
         """Test unknown resource types"""
-        assert is_gcp_resource("unknown_resource_type") == False
-        assert is_gcp_resource("azure_virtual_machine") == False
+        assert is_gcp_resource("unknown_resource_type") is False
+        assert is_gcp_resource("azure_virtual_machine") is False
 
 
 class TestGCPPricingData:
@@ -280,9 +279,10 @@ class TestGCPPricingData:
         assert "archive" in GCPPricingData.CLOUD_STORAGE_PRICING
         
         # Test pricing order (archive should be cheapest)
-        assert GCPPricingData.CLOUD_STORAGE_PRICING["archive"]["price"] < GCPPricingData.CLOUD_STORAGE_PRICING["coldline"]["price"]
-        assert GCPPricingData.CLOUD_STORAGE_PRICING["coldline"]["price"] < GCPPricingData.CLOUD_STORAGE_PRICING["nearline"]["price"]
-        assert GCPPricingData.CLOUD_STORAGE_PRICING["nearline"]["price"] < GCPPricingData.CLOUD_STORAGE_PRICING["standard"]["price"]
+        storage = GCPPricingData.CLOUD_STORAGE_PRICING
+        assert storage["archive"]["price"] < storage["coldline"]["price"]
+        assert storage["coldline"]["price"] < storage["nearline"]["price"]
+        assert storage["nearline"]["price"] < storage["standard"]["price"]
 
 
 class TestGCPPricingIntegration:

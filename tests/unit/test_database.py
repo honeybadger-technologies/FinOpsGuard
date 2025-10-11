@@ -117,7 +117,7 @@ class TestPolicyStorage:
         assert retrieved.name == "Updated Name"
         assert retrieved.budget == 2000.0
         assert retrieved.on_violation == PolicyViolationAction.BLOCK
-        assert retrieved.enabled == False
+        assert retrieved.enabled is False
         
         # Clean up
         store.delete_policy("test_update_policy")

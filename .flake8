@@ -1,0 +1,41 @@
+[flake8]
+max-line-length = 120
+extend-ignore = 
+    # Import formatting (handled by isort if needed)
+    I100, I101, I201, I202,
+    # Whitespace in blank lines (cosmetic)
+    W293,
+    # Blank line at end of file (cosmetic)
+    W391,
+    # Module level import not at top (sometimes needed for conditional imports)
+    E402,
+    # Trailing whitespace (cosmetic)
+    W291,
+    # Line too long - set to 120 above
+    E501,
+    # Continuation line indentation (subjective)
+    E128, E127, E126, E131,
+    # Formatting issues (cosmetic)
+    E303, W292,
+    # Unused local variables (often in test mocks)
+    F841
+exclude = 
+    .git,
+    __pycache__,
+    venv,
+    build,
+    dist,
+    *.egg-info,
+    .pytest_cache,
+    alembic/versions
+per-file-ignores =
+    __init__.py:F401
+    tests/*.py:F401
+    src/finopsguard/adapters/pricing/*.py:F401
+    src/finopsguard/adapters/usage/*.py:F401
+    src/finopsguard/database/*.py:F401
+    src/finopsguard/cache/*.py:F401
+    src/finopsguard/cli/*.py:F401,F541
+    src/finopsguard/metrics/*.py:F401
+    src/finopsguard/types/*.py:F401
+

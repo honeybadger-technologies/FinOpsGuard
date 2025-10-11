@@ -1,7 +1,6 @@
 """Unit tests for caching layer."""
 
 import pytest
-import os
 from finopsguard.cache import get_cache, get_pricing_cache, get_analysis_cache
 
 
@@ -106,7 +105,7 @@ class TestRedisCache:
         cache.incr("counter")
         result = cache.get("counter")
         assert str(result) == "1"  # Redis may return string or int
-        cache.incr("counter", 5)    
+        cache.incr("counter", 5)
         result = cache.get("counter")
         assert str(result) == "6"
         

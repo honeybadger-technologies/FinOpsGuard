@@ -1,7 +1,7 @@
 """Integration tests for usage API endpoints."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock
 

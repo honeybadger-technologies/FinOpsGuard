@@ -2,8 +2,6 @@
 Integration tests for HTTP endpoints
 """
 
-import pytest
-import httpx
 import base64
 from fastapi.testclient import TestClient
 from finopsguard.main import app
