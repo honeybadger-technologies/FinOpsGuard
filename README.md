@@ -27,6 +27,14 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **PUT** `/mcp/policies/{id}` - Update existing policy
 - **DELETE** `/mcp/policies/{id}` - Delete policy
 
+### Usage Integration API
+- **GET** `/usage/availability` - Check cloud provider availability
+- **POST** `/usage/resource` - Get resource metrics (CloudWatch, Cloud Monitoring, Azure Monitor)
+- **POST** `/usage/cost` - Get historical cost data (Cost Explorer, Cloud Billing, Cost Management)
+- **POST** `/usage/summary` - Generate comprehensive usage summary
+- **GET** `/usage/example/{provider}` - Get example usage data
+- **DELETE** `/usage/cache` - Clear usage data cache
+
 ### Admin UI
 - **GET** `/` - Modern web interface for policy and analysis management
 - **Dashboard**: Real-time metrics and activity overview
@@ -84,8 +92,11 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (120+ tests: auth, cache, database, pricing, policies)
-  integration/         # Integration tests (16 tests)
+  unit/                # Unit tests (145+ tests: auth, cache, database, pricing, policies, usage)
+  integration/         # Integration tests (23+ tests)
+
+examples/              # Example scripts and usage demonstrations
+  usage_integration_example.py  # Complete usage integration examples
 
 static/                # Admin UI static files
   css/                 # Stylesheets
@@ -112,6 +123,7 @@ docs/
   database.md          # PostgreSQL configuration and management
   authentication.md    # Authentication & authorization guide (API keys, JWT, OAuth2, mTLS)
   pricing.md           # Real-time and static pricing configuration
+  usage-integration.md # Usage integration guide (CloudWatch, Cloud Monitoring, Cost Management)
 
 deploy/
   kubernetes/          # Kubernetes manifests
@@ -1164,15 +1176,21 @@ For comprehensive deployment documentation, see:
 - ✅ Docker Compose deployment with full stack (database + caching + monitoring)
 - ✅ Kubernetes deployment with HA and auto-scaling
 - ✅ MCP agent integration with 12+ platforms
-- ✅ Complete test suite (135+ tests)
+- ✅ **Usage Integration**: CloudWatch/Billing API for historical data (AWS, GCP, Azure)
+  - ✅ AWS CloudWatch metrics and Cost Explorer integration
+  - ✅ GCP Cloud Monitoring and BigQuery billing export
+  - ✅ Azure Monitor and Cost Management integration
+  - ✅ REST API endpoints for usage data
+  - ✅ Intelligent caching with configurable TTL
+- ✅ Complete test suite (160+ tests including usage integration)
 
 ### Next Phase (0.3)
-- **Azure Terraform Parser**: Complete Azure resource parsing
-- **Usage Integration**: CloudWatch/Billing API for historical data
+- **Azure Terraform Parser Enhancement**: Complete Azure resource parsing coverage
 - **Enhanced Caching**: Distributed caching with Redis Cluster
-- **Enhanced Admin UI**: Advanced analytics and reporting dashboards
+- **Enhanced Admin UI**: Advanced analytics and reporting dashboards with usage visualization
 - **Multi-tenant Support**: Organization and team management
 - **Webhooks**: Event-driven notifications for cost anomalies
+- **Usage Analytics Dashboard**: Visualize historical usage trends and cost patterns
 
 ### Future (0.4+)
 - **ML Cost Forecasting**: Seasonal patterns and usage prediction
