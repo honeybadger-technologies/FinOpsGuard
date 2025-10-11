@@ -6,6 +6,7 @@
     <title>FinOpsGuard Admin</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -24,6 +25,9 @@
                 </a>
                 <a href="#analyses" class="nav-link" data-section="analyses">
                     <i class="fas fa-chart-line"></i> Analyses
+                </a>
+                <a href="#analytics" class="nav-link" data-section="analytics">
+                    <i class="fas fa-chart-area"></i> Analytics
                 </a>
                 <a href="#settings" class="nav-link" data-section="settings">
                     <i class="fas fa-cog"></i> Settings
@@ -146,6 +150,238 @@
 
                 <div id="analyses-list" class="analyses-list">
                     <div class="loading">Loading analyses...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section id="analytics" class="content-section">
+            <div class="section-header">
+                <h1><i class="fas fa-chart-area"></i> Advanced Analytics</h1>
+                <p>Comprehensive cost analytics and usage visualization</p>
+            </div>
+
+            <!-- Analytics Controls -->
+            <div class="analytics-controls">
+                <div class="control-group">
+                    <label for="analytics-cloud-filter">Cloud Provider:</label>
+                    <select id="analytics-cloud-filter" class="filter-select">
+                        <option value="all">All Providers</option>
+                        <option value="aws">AWS</option>
+                        <option value="gcp">GCP</option>
+                        <option value="azure">Azure</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="analytics-date-range">Date Range:</label>
+                    <select id="analytics-date-range" class="filter-select">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div class="control-group custom-date-range" style="display: none;">
+                    <label for="analytics-start-date">From:</label>
+                    <input type="date" id="analytics-start-date" class="date-input">
+                    <label for="analytics-end-date">To:</label>
+                    <input type="date" id="analytics-end-date" class="date-input">
+                </div>
+                <button class="btn btn-primary" onclick="app.refreshAnalytics()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-secondary" onclick="app.exportAnalytics()">
+                    <i class="fas fa-download"></i> Export
+                </button>
+            </div>
+
+            <!-- Usage Integration Status -->
+            <div class="analytics-status" id="usage-status">
+                <div class="loading">Checking usage integration status...</div>
+            </div>
+
+            <!-- Key Metrics Summary -->
+            <div class="analytics-metrics">
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="metric-content">
+                        <h4>Total Cost (Period)</h4>
+                        <h2 id="metric-total-cost">$0.00</h2>
+                        <span class="metric-change" id="metric-cost-change">—</span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="metric-content">
+                        <h4>Average Daily Cost</h4>
+                        <h2 id="metric-daily-avg">$0.00</h2>
+                        <span class="metric-change" id="metric-daily-change">—</span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="metric-content">
+                        <h4>Avg CPU Utilization</h4>
+                        <h2 id="metric-cpu-util">—</h2>
+                        <span class="metric-change" id="metric-cpu-change">—</span>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="metric-content">
+                        <h4>Active Resources</h4>
+                        <h2 id="metric-resources">0</h2>
+                        <span class="metric-change" id="metric-resources-change">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <!-- Cost Trends Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Cost Trends Over Time</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn" data-chart="cost-trend" data-type="line" title="Line Chart">
+                                <i class="fas fa-chart-line"></i>
+                            </button>
+                            <button class="chart-btn" data-chart="cost-trend" data-type="bar" title="Bar Chart">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="cost-trend-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Cost by Service Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-pie"></i> Cost by Service</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn" data-chart="cost-service" data-type="pie" title="Pie Chart">
+                                <i class="fas fa-chart-pie"></i>
+                            </button>
+                            <button class="chart-btn" data-chart="cost-service" data-type="doughnut" title="Doughnut Chart">
+                                <i class="fas fa-circle-notch"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="cost-service-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Resource Utilization Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-tachometer-alt"></i> Resource Utilization</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="utilization-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Cost by Region Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-globe"></i> Cost by Region</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="cost-region-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Details Table -->
+            <div class="analytics-table-card">
+                <div class="table-header">
+                    <h3><i class="fas fa-table"></i> Detailed Usage Breakdown</h3>
+                    <div class="table-controls">
+                        <input type="text" id="usage-table-search" placeholder="Search..." class="search-input-sm">
+                        <select id="usage-table-sort" class="filter-select-sm">
+                            <option value="cost-desc">Cost (High to Low)</option>
+                            <option value="cost-asc">Cost (Low to High)</option>
+                            <option value="date-desc">Date (Newest)</option>
+                            <option value="date-asc">Date (Oldest)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="usage-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Service</th>
+                                <th>Region</th>
+                                <th>Usage Amount</th>
+                                <th>Cost</th>
+                                <th>Utilization</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usage-table-body">
+                            <tr>
+                                <td colspan="6" class="loading">Loading usage data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-pagination">
+                    <button class="btn-pagination" id="usage-prev-page" onclick="app.changeUsagePage(-1)">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </button>
+                    <span id="usage-page-info">Page 1 of 1</span>
+                    <button class="btn-pagination" id="usage-next-page" onclick="app.changeUsagePage(1)">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cost Forecast -->
+            <div class="forecast-card">
+                <div class="forecast-header">
+                    <h3><i class="fas fa-crystal-ball"></i> Cost Forecast (Next 30 Days)</h3>
+                    <span class="forecast-info">Based on historical trends</span>
+                </div>
+                <div class="forecast-content">
+                    <div class="forecast-chart">
+                        <canvas id="forecast-chart"></canvas>
+                    </div>
+                    <div class="forecast-stats">
+                        <div class="forecast-stat">
+                            <span class="forecast-label">Predicted Cost:</span>
+                            <span class="forecast-value" id="forecast-predicted">$0.00</span>
+                        </div>
+                        <div class="forecast-stat">
+                            <span class="forecast-label">Confidence:</span>
+                            <span class="forecast-value" id="forecast-confidence">—</span>
+                        </div>
+                        <div class="forecast-stat">
+                            <span class="forecast-label">Trend:</span>
+                            <span class="forecast-value" id="forecast-trend">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Optimization Recommendations -->
+            <div class="recommendations-card">
+                <div class="recommendations-header">
+                    <h3><i class="fas fa-lightbulb"></i> Cost Optimization Recommendations</h3>
+                    <span class="recommendations-count" id="recommendations-count">0 recommendations</span>
+                </div>
+                <div id="recommendations-list" class="recommendations-list">
+                    <div class="loading">Analyzing usage patterns...</div>
                 </div>
             </div>
         </section>
@@ -310,5 +546,6 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/analytics.js"></script>
 </body>
 </html>

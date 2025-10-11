@@ -310,3 +310,139 @@ def clear_usage_cache():
         "message": "Usage cache cleared successfully"
     }
 
+
+@router.get("/analytics/{cloud_provider}")
+def get_analytics_data(
+    cloud_provider: str,
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze")
+):
+    """
+    Get comprehensive analytics data for a cloud provider.
+    
+    Combines cost data, usage metrics, and trends for dashboard visualization.
+    
+    Args:
+        cloud_provider: Cloud provider (aws, gcp, azure)
+        days: Number of days to analyze (1-365)
+        
+    Returns:
+        Analytics data including costs, trends, and recommendations
+    """
+    factory = get_usage_factory()
+    
+    if not factory.enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Usage integration is not enabled"
+        )
+    
+    if not factory.is_available(cloud_provider):
+        # Return mock data for demonstration if integration not available
+        from datetime import datetime, timedelta
+        
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+        
+        # Generate mock data for visualization
+        mock_data = {
+            "cloud_provider": cloud_provider,
+            "time_range": {
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "days": days
+            },
+            "summary": {
+                "total_cost": 0.0,
+                "average_daily_cost": 0.0,
+                "total_resources": 0,
+                "avg_cpu_utilization": None
+            },
+            "cost_by_service": {},
+            "cost_by_region": {},
+            "cost_trend": [],
+            "message": f"Usage integration not available for {cloud_provider}. Configure credentials to see real data."
+        }
+        
+        return mock_data
+    
+    try:
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+        
+        # Get cost data
+        cost_records = factory.get_cost_usage(
+            cloud_provider=cloud_provider,
+            start_time=start_time,
+            end_time=end_time,
+            granularity="DAILY",
+            group_by=["service", "region"]
+        )
+        
+        if not cost_records:
+            return {
+                "cloud_provider": cloud_provider,
+                "time_range": {
+                    "start": start_time.isoformat(),
+                    "end": end_time.isoformat(),
+                    "days": days
+                },
+                "summary": {
+                    "total_cost": 0.0,
+                    "average_daily_cost": 0.0,
+                    "total_resources": 0,
+                    "avg_cpu_utilization": None
+                },
+                "cost_by_service": {},
+                "cost_by_region": {},
+                "cost_trend": [],
+                "message": "No cost data available for this time range"
+            }
+        
+        # Aggregate data
+        total_cost = sum(r.cost for r in cost_records)
+        
+        cost_by_service = {}
+        cost_by_region = {}
+        cost_by_date = {}
+        
+        for record in cost_records:
+            service = record.service or "Unknown"
+            cost_by_service[service] = cost_by_service.get(service, 0) + record.cost
+            
+            region = record.region or "Unknown"
+            cost_by_region[region] = cost_by_region.get(region, 0) + record.cost
+            
+            date_str = record.date.strftime("%Y-%m-%d")
+            cost_by_date[date_str] = cost_by_date.get(date_str, 0) + record.cost
+        
+        # Build cost trend
+        cost_trend = [
+            {"date": date, "cost": cost}
+            for date, cost in sorted(cost_by_date.items())
+        ]
+        
+        avg_daily_cost = total_cost / len(cost_by_date) if cost_by_date else 0
+        
+        return {
+            "cloud_provider": cloud_provider,
+            "time_range": {
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "days": days
+            },
+            "summary": {
+                "total_cost": total_cost,
+                "average_daily_cost": avg_daily_cost,
+                "total_resources": len(cost_records),
+                "avg_cpu_utilization": None
+            },
+            "cost_by_service": cost_by_service,
+            "cost_by_region": cost_by_region,
+            "cost_trend": cost_trend,
+            "records": cost_records[:100]  # Limit records returned
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating analytics data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

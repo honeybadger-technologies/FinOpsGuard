@@ -4,6 +4,7 @@ class FinOpsGuardAdmin {
         this.apiBaseUrl = 'http://localhost:8080';
         this.currentPolicy = null;
         this.refreshInterval = null;
+        this.analytics = null;
         this.init();
     }
 
@@ -12,6 +13,11 @@ class FinOpsGuardAdmin {
         this.setupEventListeners();
         this.loadDashboard();
         this.startAutoRefresh();
+        
+        // Initialize analytics module when DOM is ready
+        if (typeof FinOpsAnalytics !== 'undefined') {
+            this.analytics = new FinOpsAnalytics(this);
+        }
     }
 
     setupNavigation() {
@@ -81,6 +87,11 @@ class FinOpsGuardAdmin {
                 break;
             case 'analyses':
                 this.loadAnalyses();
+                break;
+            case 'analytics':
+                if (this.analytics) {
+                    this.analytics.loadAnalytics();
+                }
                 break;
         }
     }
@@ -734,8 +745,10 @@ function removeRule(button) {
 
 // Initialize the admin interface when the page loads
 let admin;
+let app; // Global reference for analytics module
 document.addEventListener('DOMContentLoaded', () => {
     admin = new FinOpsGuardAdmin();
+    app = admin; // Make admin available as app for analytics module
 });
 
 // Close modals when clicking outside
@@ -760,3 +773,22 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// Global analytics functions (called from HTML)
+window.refreshAnalytics = function() {
+    if (app && app.analytics) {
+        app.analytics.refreshAnalytics();
+    }
+};
+
+window.exportAnalytics = function() {
+    if (app && app.analytics) {
+        app.analytics.exportAnalytics();
+    }
+};
+
+window.changeUsagePage = function(delta) {
+    if (app && app.analytics) {
+        app.analytics.changeUsagePage(delta);
+    }
+};
