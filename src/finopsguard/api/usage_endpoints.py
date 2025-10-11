@@ -117,6 +117,9 @@ def get_resource_usage(request: ResourceUsageRequest):
         
         return usage
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         logger.error(f"Error fetching resource usage: {e}")
         raise HTTPException(status_code=500, detail=str(e))

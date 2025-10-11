@@ -157,6 +157,7 @@ class TestResourceUsage:
         mock_factory_instance = Mock()
         mock_factory_instance.enabled = True
         mock_factory_instance.is_available.return_value = True
+        # Simulate an error that returns None
         mock_factory_instance.get_resource_usage.return_value = None
         mock_factory.return_value = mock_factory_instance
         
@@ -169,6 +170,7 @@ class TestResourceUsage:
             "region": "us-east-1"
         })
         
+        # The endpoint returns 404 when get_resource_usage returns None
         assert response.status_code == 404
 
 

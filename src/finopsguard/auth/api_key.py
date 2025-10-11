@@ -5,7 +5,7 @@ import hashlib
 import secrets
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from .models import User, Role
 
@@ -57,12 +57,12 @@ def store_api_key(
         API key metadata
     """
     hashed_key = hash_api_key(api_key)
-    expires_at = datetime.utcnow() + timedelta(days=expires_days)
+    expires_at = datetime.now(UTC) + timedelta(days=expires_days)
     
     metadata = {
         "name": name,
         "roles": roles,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "expires_at": expires_at.isoformat(),
         "last_used": None
     }
@@ -89,7 +89,7 @@ def verify_api_key(api_key: str) -> Optional[dict]:
             "roles": [Role.ADMIN],
             "created_at": None,
             "expires_at": None,
-            "last_used": datetime.utcnow().isoformat()
+            "last_used": datetime.now(UTC).isoformat()
         }
     
     # Check stored API keys
@@ -102,12 +102,12 @@ def verify_api_key(api_key: str) -> Optional[dict]:
     # Check expiration
     if metadata["expires_at"]:
         expires_at = datetime.fromisoformat(metadata["expires_at"])
-        if datetime.utcnow() > expires_at:
+        if datetime.now(UTC) > expires_at:
             logger.warning(f"Expired API key used: {metadata['name']}")
             return None
     
     # Update last used
-    metadata["last_used"] = datetime.utcnow().isoformat()
+    metadata["last_used"] = datetime.now(UTC).isoformat()
     
     return metadata
 

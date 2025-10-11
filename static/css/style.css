@@ -284,11 +284,36 @@ body {
 }
 
 .policy-meta {
+    margin-top: 0.75rem;
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.policy-badge {
+    display: inline-flex;
     align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    background: #f0f0f0;
+    border-radius: 12px;
     font-size: 0.8rem;
-    color: #95a5a6;
+    font-weight: 500;
+    color: #555;
+}
+
+.policy-badge i {
+    font-size: 0.75rem;
+}
+
+.policy-badge.violation-block {
+    background: #ffe0e0;
+    color: #c92a2a;
+}
+
+.policy-badge.violation-advisory {
+    background: #e3f2fd;
+    color: #1565c0;
 }
 
 .policy-status {

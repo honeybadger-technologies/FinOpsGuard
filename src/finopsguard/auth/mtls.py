@@ -3,6 +3,7 @@
 import os
 import logging
 from typing import Optional
+from datetime import datetime, UTC
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID
@@ -62,11 +63,13 @@ def verify_client_cert(cert_pem: str) -> Optional[dict]:
             organization = org_attrs[0].value
         
         # Check expiration
-        if datetime.utcnow() > cert.not_valid_after:
+        # Note: cert dates are naive UTC, so we use replace(tzinfo=None) for comparison
+        current_time = datetime.now(UTC).replace(tzinfo=None)
+        if current_time > cert.not_valid_after:
             logger.warning(f"Client certificate expired for {common_name}")
             return None
         
-        if datetime.utcnow() < cert.not_valid_before:
+        if current_time < cert.not_valid_before:
             logger.warning(f"Client certificate not yet valid for {common_name}")
             return None
         

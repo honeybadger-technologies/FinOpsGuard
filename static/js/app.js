@@ -182,7 +182,9 @@ class FinOpsGuardAdmin {
         if (!response.ok) {
             throw new Error('Failed to fetch policies');
         }
-        return await response.json();
+        const data = await response.json();
+        // API returns either an array directly or {policies: []}
+        return Array.isArray(data) ? data : (data.policies || []);
     }
 
     renderPolicies(policies) {
@@ -193,29 +195,43 @@ class FinOpsGuardAdmin {
             return;
         }
 
-        container.innerHTML = policies.map(policy => `
-            <div class="policy-item">
-                <div class="policy-info">
-                    <h4>${policy.name}</h4>
-                    <p>${policy.description || 'No description'}</p>
-                    <div class="policy-meta">
-                        <span>${policy.rules?.length || 0} rules</span>
-                        <span>Created: ${new Date(policy.created_at).toLocaleDateString()}</span>
+        container.innerHTML = policies.map(policy => {
+            // Build metadata badges
+            const badges = [];
+            if (policy.has_rules) {
+                badges.push('<span class="policy-badge"><i class="fas fa-list"></i> Has Rules</span>');
+            }
+            if (policy.has_budget) {
+                badges.push('<span class="policy-badge"><i class="fas fa-dollar-sign"></i> Has Budget</span>');
+            }
+            const violationBadge = policy.on_violation === 'block' 
+                ? '<span class="policy-badge violation-block"><i class="fas fa-ban"></i> Blocking</span>'
+                : '<span class="policy-badge violation-advisory"><i class="fas fa-info-circle"></i> Advisory</span>';
+            badges.push(violationBadge);
+            
+            return `
+                <div class="policy-item">
+                    <div class="policy-info">
+                        <h4>${policy.name}</h4>
+                        <p>${policy.description || 'No description'}</p>
+                        <div class="policy-meta">
+                            ${badges.join(' ')}
+                        </div>
+                    </div>
+                    <div class="policy-actions">
+                        <span class="policy-status ${policy.enabled ? 'enabled' : 'disabled'}">
+                            ${policy.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <button class="btn btn-primary btn-sm" onclick="admin.editPolicy('${policy.id}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="admin.deletePolicy('${policy.id}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
                     </div>
                 </div>
-                <div class="policy-actions">
-                    <span class="policy-status ${policy.enabled ? 'enabled' : 'disabled'}">
-                        ${policy.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                    <button class="btn btn-primary btn-sm" onclick="admin.editPolicy('${policy.id}')">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button class="btn btn-danger btn-sm" onclick="admin.deletePolicy('${policy.id}')">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     filterPolicies() {
@@ -257,7 +273,8 @@ class FinOpsGuardAdmin {
             throw new Error('Failed to fetch analyses');
         }
         const data = await response.json();
-        return data.analyses || [];
+        // API returns either {analyses: []} or {items: []}
+        return data.analyses || data.items || [];
     }
 
     renderAnalyses(analyses) {

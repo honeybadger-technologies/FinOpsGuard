@@ -119,11 +119,11 @@ class TestUsageFactory:
             factory._get_adapter("invalid_cloud")
     
     @patch.dict(os.environ, {"USAGE_INTEGRATION_ENABLED": "true", "AWS_USAGE_ENABLED": "true"})
-    @patch('finopsguard.adapters.usage.aws_usage.boto3')
-    def test_factory_get_resource_usage(self, mock_boto3, sample_resource_usage):
+    def test_factory_get_resource_usage(self, sample_resource_usage):
         """Test getting resource usage through factory."""
         from finopsguard.adapters.usage.usage_factory import UsageFactory
         factory = UsageFactory()
+        factory.enabled = True  # Ensure enabled
         
         # Mock AWS adapter
         mock_adapter = Mock()
@@ -136,7 +136,8 @@ class TestUsageFactory:
                 resource_id="i-123",
                 resource_type="ec2",
                 start_time=datetime(2024, 1, 1),
-                end_time=datetime(2024, 1, 2)
+                end_time=datetime(2024, 1, 2),
+                use_cache=False  # Disable caching for test
             )
             
             assert result is not None
@@ -173,25 +174,21 @@ class TestAWSUsageAdapter:
         assert not adapter.is_available()
     
     @patch.dict(os.environ, {"AWS_USAGE_ENABLED": "true"})
-    @patch('finopsguard.adapters.usage.aws_usage.boto3')
-    def test_aws_adapter_initialization(self, mock_boto3):
+    def test_aws_adapter_initialization(self):
         """Test AWS adapter initialization."""
-        # Mock boto3 clients
-        mock_cloudwatch = Mock()
-        mock_ce = Mock()
-        mock_boto3.client.side_effect = lambda service, **kwargs: {
-            'cloudwatch': mock_cloudwatch,
-            'ce': mock_ce,
-            'sts': Mock(get_caller_identity=lambda: {"Account": "123456789012"})
-        }[service]
+        # Skip if boto3 not installed
+        pytest.importorskip("boto3")
         
         adapter = get_aws_usage_adapter()
         assert adapter.cloud_provider == "aws"
+        assert adapter._region == "us-east-1"
     
     @patch.dict(os.environ, {"AWS_USAGE_ENABLED": "true"})
-    @patch('finopsguard.adapters.usage.aws_usage.boto3')
-    def test_aws_get_resource_usage(self, mock_boto3):
+    def test_aws_get_resource_usage(self):
         """Test getting CloudWatch metrics for AWS resource."""
+        # Skip if boto3 not installed
+        pytest.importorskip("boto3")
+        
         # Mock CloudWatch client
         mock_cloudwatch = Mock()
         mock_cloudwatch.get_metric_statistics.return_value = {
@@ -203,8 +200,6 @@ class TestAWSUsageAdapter:
                 }
             ]
         }
-        
-        mock_boto3.client.return_value = mock_cloudwatch
         
         adapter = get_aws_usage_adapter()
         adapter._cloudwatch = mock_cloudwatch
@@ -224,9 +219,11 @@ class TestAWSUsageAdapter:
         assert len(result.metrics) > 0
     
     @patch.dict(os.environ, {"AWS_USAGE_ENABLED": "true"})
-    @patch('finopsguard.adapters.usage.aws_usage.boto3')
-    def test_aws_get_cost_usage(self, mock_boto3):
+    def test_aws_get_cost_usage(self):
         """Test getting Cost Explorer data."""
+        # Skip if boto3 not installed
+        pytest.importorskip("boto3")
+        
         # Mock Cost Explorer client
         mock_ce = Mock()
         mock_ce.get_cost_and_usage.return_value = {
@@ -249,8 +246,6 @@ class TestAWSUsageAdapter:
                 }
             ]
         }
-        
-        mock_boto3.client.return_value = mock_ce
         
         adapter = get_aws_usage_adapter()
         adapter._ce = mock_ce
@@ -276,47 +271,57 @@ class TestGCPUsageAdapter:
         adapter = get_gcp_usage_adapter()
         assert not adapter.is_available()
     
-    @patch.dict(os.environ, {"GCP_USAGE_ENABLED": "true", "GCP_PROJECT_ID": "test-project"})
+    @patch.dict(os.environ, {"GCP_USAGE_ENABLED": "true", "GCP_PROJECT_ID": "test-project"}, clear=False)
     def test_gcp_adapter_initialization(self):
         """Test GCP adapter initialization."""
+        # Force reload of the adapter to pick up new env vars
+        from finopsguard.adapters.usage import gcp_usage
+        gcp_usage._gcp_usage_adapter = None
+        
         adapter = get_gcp_usage_adapter()
         assert adapter.cloud_provider == "gcp"
         assert adapter._project_id == "test-project"
     
-    @patch.dict(os.environ, {"GCP_USAGE_ENABLED": "true", "GCP_PROJECT_ID": "test-project"})
-    @patch('finopsguard.adapters.usage.gcp_usage.monitoring_v3')
-    def test_gcp_get_resource_usage(self, mock_monitoring):
+    @patch.dict(os.environ, {"GCP_USAGE_ENABLED": "true", "GCP_PROJECT_ID": "test-project"}, clear=False)
+    def test_gcp_get_resource_usage(self):
         """Test getting Cloud Monitoring metrics for GCP resource."""
-        # Mock monitoring client
-        mock_client = Mock()
-        mock_time_series = Mock()
-        mock_time_series.points = [
-            Mock(
-                interval=Mock(end_time=datetime(2024, 1, 1, 12, 0)),
-                value=Mock(double_value=0.455, int64_value=None)
+        # Skip if google-cloud-monitoring not installed
+        pytest.importorskip("google.cloud.monitoring_v3")
+        
+        with patch('google.cloud.monitoring_v3.MetricServiceClient') as mock_monitoring:
+            # Mock monitoring client
+            mock_client = Mock()
+            mock_time_series = Mock()
+            mock_time_series.points = [
+                Mock(
+                    interval=Mock(end_time=datetime(2024, 1, 1, 12, 0)),
+                    value=Mock(double_value=0.455, int64_value=None)
+                )
+            ]
+            mock_time_series.metric = Mock(type="compute.googleapis.com/instance/cpu/utilization")
+            mock_time_series.resource = Mock(labels={"instance_id": "test-instance"})
+            
+            mock_client.list_time_series.return_value = [mock_time_series]
+            mock_monitoring.return_value = mock_client
+            
+            from finopsguard.adapters.usage import gcp_usage
+            gcp_usage._gcp_usage_adapter = None
+            
+            adapter = get_gcp_usage_adapter()
+            adapter._monitoring = mock_client
+            adapter._enabled = True
+            
+            result = adapter.get_resource_usage(
+                resource_id="test-instance",
+                resource_type="gce_instance",
+                start_time=datetime(2024, 1, 1),
+                end_time=datetime(2024, 1, 2),
+                region="us-central1"
             )
-        ]
-        mock_time_series.metric = Mock(type="compute.googleapis.com/instance/cpu/utilization")
-        mock_time_series.resource = Mock(labels={"instance_id": "test-instance"})
-        
-        mock_client.list_time_series.return_value = [mock_time_series]
-        mock_monitoring.MetricServiceClient.return_value = mock_client
-        
-        adapter = get_gcp_usage_adapter()
-        adapter._monitoring = mock_client
-        adapter._enabled = True
-        
-        result = adapter.get_resource_usage(
-            resource_id="test-instance",
-            resource_type="gce_instance",
-            start_time=datetime(2024, 1, 1),
-            end_time=datetime(2024, 1, 2),
-            region="us-central1"
-        )
-        
-        assert result is not None
-        assert result.resource_id == "test-instance"
-        assert result.resource_type == "gce_instance"
+            
+            assert result is not None
+            assert result.resource_id == "test-instance"
+            assert result.resource_type == "gce_instance"
 
 
 class TestAzureUsageAdapter:
@@ -331,9 +336,12 @@ class TestAzureUsageAdapter:
     @patch.dict(os.environ, {
         "AZURE_USAGE_ENABLED": "true",
         "AZURE_SUBSCRIPTION_ID": "test-subscription-id"
-    })
+    }, clear=False)
     def test_azure_adapter_initialization(self):
         """Test Azure adapter initialization."""
+        from finopsguard.adapters.usage import azure_usage
+        azure_usage._azure_usage_adapter = None
+        
         adapter = get_azure_usage_adapter()
         assert adapter.cloud_provider == "azure"
         assert adapter._subscription_id == "test-subscription-id"
@@ -341,40 +349,46 @@ class TestAzureUsageAdapter:
     @patch.dict(os.environ, {
         "AZURE_USAGE_ENABLED": "true",
         "AZURE_SUBSCRIPTION_ID": "test-subscription"
-    })
-    @patch('finopsguard.adapters.usage.azure_usage.MonitorManagementClient')
-    @patch('finopsguard.adapters.usage.azure_usage.DefaultAzureCredential')
-    def test_azure_get_resource_usage(self, mock_credential, mock_monitor):
+    }, clear=False)
+    def test_azure_get_resource_usage(self):
         """Test getting Azure Monitor metrics."""
-        # Mock monitor client
-        mock_client = Mock()
-        mock_metric = Mock()
-        mock_metric.unit = Mock(value="Percent")
-        mock_metric.timeseries = [
-            Mock(data=[
-                Mock(
-                    time_stamp=datetime(2024, 1, 1, 12, 0),
-                    average=45.5
-                )
-            ])
-        ]
-        mock_client.metrics.list.return_value = Mock(value=[mock_metric])
-        mock_monitor.return_value = mock_client
+        # Skip if azure packages not installed
+        pytest.importorskip("azure.mgmt.monitor")
         
-        adapter = get_azure_usage_adapter()
-        adapter._monitor = mock_client
-        adapter._enabled = True
-        
-        result = adapter.get_resource_usage(
-            resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Compute/virtualMachines/test-vm",
-            resource_type="virtual_machine",
-            start_time=datetime(2024, 1, 1),
-            end_time=datetime(2024, 1, 2),
-            region="eastus"
-        )
-        
-        assert result is not None
-        assert result.resource_type == "virtual_machine"
+        with patch('azure.mgmt.monitor.MonitorManagementClient') as mock_monitor_class, \
+             patch('azure.identity.DefaultAzureCredential') as mock_credential:
+            # Mock monitor client
+            mock_client = Mock()
+            mock_metric = Mock()
+            mock_metric.unit = Mock(value="Percent")
+            mock_metric.timeseries = [
+                Mock(data=[
+                    Mock(
+                        time_stamp=datetime(2024, 1, 1, 12, 0),
+                        average=45.5
+                    )
+                ])
+            ]
+            mock_client.metrics.list.return_value = Mock(value=[mock_metric])
+            mock_monitor_class.return_value = mock_client
+            
+            from finopsguard.adapters.usage import azure_usage
+            azure_usage._azure_usage_adapter = None
+            
+            adapter = get_azure_usage_adapter()
+            adapter._monitor = mock_client
+            adapter._enabled = True
+            
+            result = adapter.get_resource_usage(
+                resource_id="/subscriptions/test/resourceGroups/test/providers/Microsoft.Compute/virtualMachines/test-vm",
+                resource_type="virtual_machine",
+                start_time=datetime(2024, 1, 1),
+                end_time=datetime(2024, 1, 2),
+                region="eastus"
+            )
+            
+            assert result is not None
+            assert result.resource_type == "virtual_machine"
 
 
 class TestUsageModels:

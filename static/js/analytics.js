@@ -372,8 +372,14 @@ class FinOpsAnalytics {
 
     async loadAnalysisBasedCosts() {
         // Fallback: use cost projections from analyses
-        const analyses = await this.app.fetchAnalyses();
-        const dateRange = this.getDateRange();
+        try {
+            const analyses = await this.app.fetchAnalyses();
+            if (!analyses || analyses.length === 0) {
+                // No analyses available, use empty cost data
+                this.processCostData([]);
+                return;
+            }
+            const dateRange = this.getDateRange();
 
         const filteredAnalyses = analyses.filter(a => {
             const analysisDate = new Date(a.timestamp);
@@ -410,10 +416,38 @@ class FinOpsAnalytics {
             region: d.region,
             dimensions: {}
         })));
+        } catch (error) {
+            console.error('Error loading analysis-based costs:', error);
+            this.processCostData([]);
+        }
     }
 
     processCostData(costData) {
         if (!costData || costData.length === 0) {
+            // Show empty state
+            document.getElementById('metric-total-cost').textContent = '$0.00';
+            document.getElementById('metric-daily-avg').textContent = '$0.00';
+            document.getElementById('metric-resources').textContent = '0';
+            
+            // Clear charts
+            if (this.charts.costTrend) {
+                this.charts.costTrend.data.labels = [];
+                this.charts.costTrend.data.datasets[0].data = [];
+                this.charts.costTrend.update();
+            }
+            if (this.charts.costService) {
+                this.charts.costService.data.labels = [];
+                this.charts.costService.data.datasets[0].data = [];
+                this.charts.costService.update();
+            }
+            if (this.charts.costRegion) {
+                this.charts.costRegion.data.labels = [];
+                this.charts.costRegion.data.datasets[0].data = [];
+                this.charts.costRegion.update();
+            }
+            
+            this.usageData = [];
+            this.renderUsageTable();
             return;
         }
 
