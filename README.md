@@ -50,7 +50,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **PR/MR Comments**: Automated posting of cost analysis results
 
 ### Features
-- ✅ **Terraform Parser**: Full HCL parsing with support for AWS, GCP, and Azure resources
+- ✅ **Terraform Parser**: Modular HCL parsing with 60+ resource types across AWS (24), GCP (18), and Azure (18)
 - ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for multi-cloud infrastructure
 - ✅ **Policy Engine**: Budget and rule-based policies with DSL support
 - ✅ **Blocking Mode**: Policy violations can block deployments
@@ -79,10 +79,15 @@ src/finopsguard/
     pricing/           # Cloud pricing adapters (static + live APIs for AWS/GCP/Azure)
     usage/             # Historical usage adapters (CloudWatch, Monitoring, Cost Management)
   auth/                # Authentication & authorization (API keys, JWT, OAuth2, mTLS)
+  audit/               # Audit logging and compliance reporting
   cache/               # Redis caching layer (pricing, analysis, policies)
-  database/            # PostgreSQL persistent storage (policies, analyses)
+  database/            # PostgreSQL persistent storage (policies, analyses, audit logs)
   engine/              # Cost simulation and policy evaluation
-  parsers/             # Terraform HCL -> Canonical Resource Model
+  parsers/             # Terraform HCL parsers (modular: AWS, GCP, Azure)
+    terraform.py       # Main orchestrator (93 lines)
+    aws_tf_parser.py   # AWS resource parsing (24 types)
+    gcp_tf_parser.py   # GCP resource parsing (18 types)
+    azure_tf_parser.py # Azure resource parsing (18 types)
   storage/             # Hybrid storage (in-memory + database)
   types/               # Pydantic models and policy definitions
   integrations/        # CI/CD integration helpers
@@ -92,7 +97,7 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (145+ tests: auth, cache, database, pricing, policies, usage)
+  unit/                # Unit tests (228+ tests: auth, cache, database, pricing, policies, usage, parsers, audit)
   integration/         # Integration tests (23+ tests)
 
 examples/              # Example scripts and usage demonstrations
