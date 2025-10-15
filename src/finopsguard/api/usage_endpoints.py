@@ -7,8 +7,8 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from finopsguard.adapters.usage import get_usage_factory
-from finopsguard.types.usage import (
+from ..adapters.usage import get_usage_factory
+from ..types.usage import (
     ResourceUsage,
     CostUsageRecord,
     UsageSummary,

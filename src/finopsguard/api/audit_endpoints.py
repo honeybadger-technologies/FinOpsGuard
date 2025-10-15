@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from finopsguard.types.audit import (
+from ..types.audit import (
     AuditEvent,
     AuditQuery,
     AuditLogResponse,
@@ -15,8 +15,8 @@ from finopsguard.types.audit import (
     AuditEventType,
     AuditSeverity
 )
-from finopsguard.audit import get_audit_logger, get_audit_storage
-from finopsguard.audit.compliance import get_compliance_engine
+from ..audit import get_audit_logger, get_audit_storage
+from ..audit.compliance import get_compliance_engine
 
 logger = logging.getLogger(__name__)
 

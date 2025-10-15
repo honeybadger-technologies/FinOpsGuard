@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from finopsguard.types.usage import (
+from ...types.usage import (
     ResourceUsage,
     CostUsageRecord,
     UsageSummary,

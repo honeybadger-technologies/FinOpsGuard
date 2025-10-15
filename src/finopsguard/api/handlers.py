@@ -110,6 +110,39 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
     )
 
     # Update response based on policy evaluation
+    response.policy_eval = policy_result
+    
+    # Send webhook notifications for cost anomalies
+    try:
+        from ..webhooks.events import WebhookEventService
+        webhook_service = WebhookEventService()
+        
+        # Prepare analysis data for webhook events
+        analysis_data = {
+            'estimated_monthly_cost': response.estimated_monthly_cost,
+            'estimated_first_week_cost': response.estimated_first_week_cost,
+            'breakdown_by_resource': [item.model_dump() for item in response.breakdown_by_resource],
+            'risk_flags': response.risk_flags,
+            'recommendations': [rec.model_dump() for rec in response.recommendations],
+            'policy_eval': policy_result.model_dump(),
+            'duration_ms': duration_ms,
+            'environment': req.environment
+        }
+        
+        # Add budget limit if provided
+        if req.budget_rules and 'monthly_budget' in req.budget_rules:
+            analysis_data['budget_limit'] = req.budget_rules['monthly_budget']
+        
+        # Detect and send webhook events for anomalies
+        await webhook_service.detect_cost_anomalies(
+            current_analysis=analysis_data,
+            previous_analyses=[],  # TODO: Get from database
+            environment=req.environment
+        )
+    except Exception as e:
+        # Don't fail the request if webhook delivery fails
+        logger.warning(f"Failed to send webhook notifications: {e}")
+    
     if policy_result.overall_status == "block":
         response.risk_flags.append('policy_blocked')
         response.policy_eval = PolicyEvaluation(
@@ -376,6 +409,18 @@ async def create_policy(policy_data: Dict[str, Any]) -> Dict[str, Any]:
     )
     
     policy_engine.add_policy(policy)
+    
+    # Send webhook notification
+    try:
+        from ..webhooks.events import WebhookEventService
+        webhook_service = WebhookEventService()
+        await webhook_service.send_policy_created_event(
+            policy_data=policy.model_dump(),
+            created_by="api_user"  # TODO: Get from auth context
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send policy created webhook: {e}")
+    
     return {"message": f"Policy {policy.id} created successfully"}
 
 
@@ -451,6 +496,22 @@ async def update_policy(policy_id: str, policy_data: Dict[str, Any]) -> Dict[str
     # Invalidate cache for this policy
     analysis_cache.invalidate_policy(policy_id)
     
+    # Send webhook notification
+    try:
+        from ..webhooks.events import WebhookEventService
+        webhook_service = WebhookEventService()
+        changes = {
+            "old_policy": existing_policy.model_dump(),
+            "new_policy": policy.model_dump()
+        }
+        await webhook_service.send_policy_updated_event(
+            policy_data=policy.model_dump(),
+            updated_by="api_user",  # TODO: Get from auth context
+            changes=changes
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send policy updated webhook: {e}")
+    
     return {
         "id": policy.id,
         "name": policy.name,
@@ -462,11 +523,28 @@ async def update_policy(policy_id: str, policy_data: Dict[str, Any]) -> Dict[str
 
 async def delete_policy(policy_id: str) -> Dict[str, Any]:
     """Delete a policy by ID"""
+    # Get policy before deletion for webhook
+    policy = policy_engine.get_policy(policy_id)
+    if not policy:
+        raise ValueError(f"Policy {policy_id} not found")
+    
     success = policy_engine.remove_policy(policy_id)
     if not success:
         raise ValueError(f"Policy {policy_id} not found")
     
     # Invalidate cache for this policy
     analysis_cache.invalidate_policy(policy_id)
+    
+    # Send webhook notification
+    try:
+        from ..webhooks.events import WebhookEventService
+        webhook_service = WebhookEventService()
+        await webhook_service.send_policy_deleted_event(
+            policy_id=policy.id,
+            policy_name=policy.name,
+            deleted_by="api_user"  # TODO: Get from auth context
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send policy deleted webhook: {e}")
     
     return {"message": f"Policy {policy_id} deleted successfully"}

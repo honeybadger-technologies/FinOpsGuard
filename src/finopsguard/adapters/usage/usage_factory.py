@@ -5,7 +5,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
-from finopsguard.types.usage import (
+from ...types.usage import (
     ResourceUsage,
     UsageSummary,
     UsageQuery

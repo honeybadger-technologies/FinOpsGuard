@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from finopsguard.types.audit import (
+from ..types.audit import (
     ComplianceReport,
     AuditQuery,
     AuditEventType,

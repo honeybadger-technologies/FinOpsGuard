@@ -1,6 +1,6 @@
 """SQLAlchemy database models for FinOpsGuard."""
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, Index
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, Index, ForeignKey
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
@@ -154,4 +154,66 @@ class CacheMetadata(Base):
     
     def __repr__(self):
         return f"<CacheMetadata(key='{self.cache_key}', type='{self.cache_type}')>"
+
+
+class Webhook(Base):
+    """Webhook configuration database model."""
+    
+    __tablename__ = "webhooks"
+    
+    id = Column(String(255), primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    url = Column(String(500), nullable=False)
+    secret = Column(String(255), nullable=True)  # For HMAC signature verification
+    events = Column(JSON, nullable=False)  # List of event types to subscribe to
+    enabled = Column(Boolean, nullable=False, default=True)
+    verify_ssl = Column(Boolean, nullable=False, default=True)
+    timeout_seconds = Column(Integer, nullable=False, default=30)
+    retry_attempts = Column(Integer, nullable=False, default=3)
+    retry_delay_seconds = Column(Integer, nullable=False, default=5)
+    headers = Column(JSON, nullable=True)  # Custom headers to include
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(String(255), nullable=True)
+    updated_by = Column(String(255), nullable=True)
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_webhook_enabled', 'enabled'),
+        Index('idx_webhook_created_at', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<Webhook(id='{self.id}', name='{self.name}', enabled={self.enabled})>"
+
+
+class WebhookDelivery(Base):
+    """Webhook delivery attempt database model."""
+    
+    __tablename__ = "webhook_deliveries"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    webhook_id = Column(String(255), ForeignKey('webhooks.id', ondelete='CASCADE'), nullable=False, index=True)
+    event_id = Column(String(255), nullable=False, index=True)
+    event_type = Column(String(100), nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+    status = Column(String(50), nullable=False, index=True)  # pending, delivered, failed, retrying
+    response_status = Column(Integer, nullable=True)
+    response_body = Column(Text, nullable=True)
+    attempt_number = Column(Integer, nullable=False, default=1)
+    max_attempts = Column(Integer, nullable=False, default=3)
+    next_retry_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    error_message = Column(Text, nullable=True)
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_webhook_deliveries_webhook_status', 'webhook_id', 'status'),
+        Index('idx_webhook_deliveries_event_type_created', 'event_type', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<WebhookDelivery(id={self.id}, webhook_id='{self.webhook_id}', status='{self.status}')>"
 

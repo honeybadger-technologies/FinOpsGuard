@@ -3,11 +3,14 @@ FastAPI server for FinOpsGuard MCP endpoints
 """
 
 import os
+import logging
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+
+logger = logging.getLogger(__name__)
 
 from .handlers import (
     check_cost_impact, suggest_optimizations, evaluate_policy,
@@ -28,6 +31,9 @@ from .usage_endpoints import router as usage_router
 
 # Import audit endpoints
 from .audit_endpoints import router as audit_router
+
+# Import webhook endpoints
+from .webhook_endpoints import router as webhook_router
 
 app = FastAPI(
     title="FinOpsGuard",
@@ -59,11 +65,38 @@ app.include_router(usage_router)
 # Include audit logging router
 app.include_router(audit_router)
 
+# Include webhook router
+app.include_router(webhook_router)
+
 # Add audit logging middleware
 AUDIT_MIDDLEWARE_ENABLED = os.getenv("AUDIT_MIDDLEWARE_ENABLED", "true").lower() == "true"
 if AUDIT_MIDDLEWARE_ENABLED:
-    from finopsguard.audit.middleware import AuditMiddleware
+    from ..audit.middleware import AuditMiddleware
     app.add_middleware(AuditMiddleware)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Startup event handler"""
+    # Start webhook background tasks
+    try:
+        from ..webhooks.tasks import start_webhook_background_tasks
+        await start_webhook_background_tasks()
+        logger.info("Webhook background tasks started")
+    except Exception as e:
+        logger.error(f"Failed to start webhook background tasks: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown event handler"""
+    # Stop webhook background tasks
+    try:
+        from ..webhooks.tasks import stop_webhook_background_tasks
+        await stop_webhook_background_tasks()
+        logger.info("Webhook background tasks stopped")
+    except Exception as e:
+        logger.error(f"Failed to stop webhook background tasks: {e}")
 
 
 @app.get("/mcp")
@@ -108,6 +141,11 @@ async def mcp_info():
                 "path": "/mcp/policies",
                 "method": "GET",
                 "description": "List all policies"
+            },
+            "webhooks": {
+                "path": "/webhooks",
+                "method": "GET",
+                "description": "Manage webhook notifications for cost anomalies"
             }
         },
         "documentation": {
@@ -122,7 +160,8 @@ async def mcp_info():
             "Real-time pricing data",
             "Historical usage integration",
             "Audit logging and compliance",
-            "CI/CD integration (GitHub, GitLab)"
+            "CI/CD integration (GitHub, GitLab)",
+            "Webhook notifications for cost anomalies"
         ]
     }
 

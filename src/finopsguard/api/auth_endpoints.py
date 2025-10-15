@@ -51,7 +51,7 @@ async def login(login_req: LoginRequest, request: Request):
     Returns:
         Access token
     """
-    from finopsguard.audit import get_audit_logger
+    from ..audit import get_audit_logger
     audit_logger = get_audit_logger()
     
     # Get client IP for audit logging

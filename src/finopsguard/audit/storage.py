@@ -4,8 +4,8 @@ import logging
 from typing import Optional
 from sqlalchemy import desc, and_, or_
 
-from finopsguard.types.audit import AuditEvent, AuditQuery, AuditLogResponse
-from finopsguard.database.connection import is_db_available, get_session_factory
+from ..types.audit import AuditEvent, AuditQuery, AuditLogResponse
+from ..database.connection import is_db_available, get_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class AuditLogStorage:
         
         session = None
         try:
-            from finopsguard.database.models import AuditLog
+            from ..database.models import AuditLog
             
             SessionFactory = get_session_factory()
             if not SessionFactory:
@@ -104,7 +104,7 @@ class AuditLogStorage:
             )
         
         try:
-            from finopsguard.database.models import AuditLog
+            from ..database.models import AuditLog
             
             session = self.db.get_session()
             
@@ -246,7 +246,7 @@ class AuditLogStorage:
         
         session = None
         try:
-            from finopsguard.database.models import AuditLog
+            from ..database.models import AuditLog
             
             SessionFactory = get_session_factory()
             if not SessionFactory:

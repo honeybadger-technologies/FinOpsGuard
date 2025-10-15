@@ -35,6 +35,15 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 - **GET** `/usage/example/{provider}` - Get example usage data
 - **DELETE** `/usage/cache` - Clear usage data cache
 
+### Webhook Management API
+- **GET** `/webhooks` - List all webhook configurations
+- **POST** `/webhooks` - Create new webhook configuration
+- **GET** `/webhooks/{id}` - Get specific webhook configuration
+- **PUT** `/webhooks/{id}` - Update webhook configuration
+- **DELETE** `/webhooks/{id}` - Delete webhook configuration
+- **GET** `/webhooks/{id}/deliveries` - List webhook delivery attempts
+- **GET** `/webhooks/stats` - Get webhook delivery statistics
+
 ### Admin UI
 - **GET** `/` - Modern web interface for policy and analysis management
 - **Dashboard**: Real-time metrics and activity overview
@@ -59,6 +68,12 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
   - **AWS**: CloudWatch metrics and Cost Explorer for actual resource usage and billing
   - **GCP**: Cloud Monitoring metrics and BigQuery billing export for usage analytics
   - **Azure**: Azure Monitor metrics and Cost Management for cost and usage tracking
+- ✅ **Webhooks**: Event-driven notifications for cost anomalies and policy changes
+  - **Cost Anomalies**: Automatic alerts for budget violations, cost spikes, and high-cost resources
+  - **Policy Events**: Notifications for policy creation, updates, and deletions
+  - **Retry Logic**: Robust delivery with configurable retry attempts and timeouts
+  - **HMAC Signatures**: Secure webhook verification with cryptographic signatures
+  - **Background Processing**: Asynchronous delivery with proper error handling
 - ✅ **Authentication**: API keys, JWT tokens, OAuth2 (GitHub/Google/Azure), mTLS support
 - ✅ **RBAC**: Role-based access control (admin, user, viewer, api)
 - ✅ **PostgreSQL Storage**: Persistent policies and analysis history
@@ -90,6 +105,11 @@ src/finopsguard/
     azure_tf_parser.py # Azure resource parsing (18 types)
   storage/             # Hybrid storage (in-memory + database)
   types/               # Pydantic models and policy definitions
+  webhooks/            # Webhook system for event-driven notifications
+    storage.py         # Webhook configuration storage
+    delivery.py        # Webhook delivery service with retry logic
+    events.py          # Event generation and cost anomaly detection
+    tasks.py           # Background task processing
   integrations/        # CI/CD integration helpers
     github/            # GitHub Actions and PR commenting
     gitlab/            # GitLab CI and MR commenting
@@ -97,8 +117,8 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (228+ tests: auth, cache, database, pricing, policies, usage, parsers, audit)
-  integration/         # Integration tests (23+ tests)
+  unit/                # Unit tests (245+ tests: auth, cache, database, pricing, policies, usage, parsers, audit, webhooks)
+  integration/         # Integration tests (25+ tests)
 
 examples/              # Example scripts and usage demonstrations
   usage_integration_example.py  # Complete usage integration examples
@@ -308,6 +328,36 @@ curl -sS -X POST "http://localhost:8080/usage/cost" \
 curl -sS http://localhost:8080/usage/example/aws?days=7
 ```
 
+### Webhook Management
+Configure webhooks for event-driven notifications:
+
+```bash
+# Create a webhook for cost anomaly notifications
+curl -sS -X POST "http://localhost:8080/webhooks" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Cost Anomaly Alerts",
+    "description": "Notify when cost anomalies are detected",
+    "url": "https://your-app.com/webhooks/finopsguard",
+    "events": ["cost.anomaly.detected", "budget.exceeded", "cost.spike"],
+    "secret": "your-webhook-secret",
+    "enabled": true,
+    "verify_ssl": true,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "retry_delay_seconds": 5
+  }'
+
+# List all webhooks
+curl -sS http://localhost:8080/webhooks
+
+# Get webhook delivery history
+curl -sS http://localhost:8080/webhooks/{webhook_id}/deliveries
+
+# Get webhook statistics
+curl -sS http://localhost:8080/webhooks/stats
+```
+
 ### GCP Cost Analysis
 Analyze GCP infrastructure changes:
 
@@ -360,8 +410,8 @@ PYTHONPATH=src pytest tests/ -v
 ```
 
 ### Test Categories
-- **Unit Tests** (120+ tests): Core business logic, policy engine, cost simulation, AWS pricing, GCP pricing, caching layer, authentication, database
-- **Integration Tests** (16 tests): HTTP endpoints, API workflows, error handling
+- **Unit Tests** (245+ tests): Core business logic, policy engine, cost simulation, AWS pricing, GCP pricing, caching layer, authentication, database, webhooks
+- **Integration Tests** (25+ tests): HTTP endpoints, API workflows, error handling, webhook integration
 
 ### Test Coverage
 - ✅ Policy engine evaluation and blocking logic
@@ -377,6 +427,7 @@ PYTHONPATH=src pytest tests/ -v
 - ✅ Error handling and edge cases
 - ✅ Admin UI functionality and policy management
 - ✅ CI/CD integration scripts and workflows
+- ✅ Webhook system (storage, delivery, events, background processing)
 
 ## Policy Engine Features
 
@@ -1074,6 +1125,234 @@ curl --cert client.crt --key client.key https://finopsguard:8080/mcp/checkCostIm
 
 **See [docs/authentication.md](docs/authentication.md) for comprehensive authentication documentation.**
 
+## Webhooks
+
+FinOpsGuard provides a comprehensive webhook system for event-driven notifications about cost anomalies and policy changes.
+
+### Webhook Features
+
+- **Event-Driven Notifications**: Automatic alerts for cost anomalies, budget violations, and policy changes
+- **Robust Delivery**: Retry logic, timeout handling, and delivery status tracking
+- **Security**: HMAC signature verification for webhook authenticity
+- **Flexible Configuration**: Custom headers, SSL settings, and event filtering
+- **Background Processing**: Asynchronous delivery with proper error handling
+- **Full API**: Complete CRUD operations for webhook management
+
+### Supported Events
+
+| Event Type | Description | Trigger |
+|------------|-------------|---------|
+| `cost.anomaly.detected` | Cost anomaly detected | When analysis shows unusual cost patterns |
+| `budget.exceeded` | Budget limit exceeded | When estimated cost exceeds budget threshold |
+| `cost.spike` | Significant cost increase | When cost increases dramatically |
+| `high.cost.resource` | High-cost resource detected | When individual resources have high costs |
+| `policy.created` | New policy created | When a policy is created via API |
+| `policy.updated` | Policy updated | When an existing policy is modified |
+| `policy.deleted` | Policy deleted | When a policy is removed |
+
+### Webhook Configuration
+
+```bash
+# Create a webhook for cost anomaly notifications
+curl -X POST "http://localhost:8080/webhooks" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Cost Anomaly Alerts",
+    "description": "Notify when cost anomalies are detected",
+    "url": "https://your-app.com/webhooks/finopsguard",
+    "events": ["cost.anomaly.detected", "budget.exceeded"],
+    "secret": "your-webhook-secret",
+    "enabled": true,
+    "verify_ssl": true,
+    "timeout_seconds": 30,
+    "retry_attempts": 3,
+    "retry_delay_seconds": 5,
+    "headers": {
+      "X-Custom-Header": "custom-value"
+    }
+  }'
+```
+
+### Webhook Payload Format
+
+```json
+{
+  "event_id": "evt_1234567890",
+  "event_type": "cost.anomaly.detected",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "webhook_id": "webhook_123",
+  "data": {
+    "analysis_id": "analysis_456",
+    "estimated_monthly_cost": 1500.00,
+    "budget_limit": 1000.00,
+    "anomaly_type": "budget_exceeded",
+    "environment": "prod",
+    "resources": [
+      {
+        "type": "aws_instance",
+        "size": "t3.large",
+        "estimated_cost": 750.00
+      }
+    ],
+    "recommendations": [
+      "Consider using t3.medium instances",
+      "Review resource allocation"
+    ]
+  }
+}
+```
+
+### HMAC Signature Verification
+
+FinOpsGuard signs webhook payloads with HMAC-SHA256 for security:
+
+```python
+import hmac
+import hashlib
+import json
+
+def verify_webhook_signature(payload, signature, secret):
+    """Verify webhook signature."""
+    expected_signature = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(signature, expected_signature)
+
+# Example verification
+payload = request.body
+signature = request.headers.get('X-FinOpsGuard-Signature')
+secret = 'your-webhook-secret'
+
+if verify_webhook_signature(payload, signature, secret):
+    # Process webhook
+    pass
+else:
+    # Reject webhook
+    return 401
+```
+
+### Webhook Management
+
+```bash
+# List all webhooks
+curl http://localhost:8080/webhooks
+
+# Get specific webhook
+curl http://localhost:8080/webhooks/{webhook_id}
+
+# Update webhook
+curl -X PUT http://localhost:8080/webhooks/{webhook_id} \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled": false}'
+
+# Delete webhook
+curl -X DELETE http://localhost:8080/webhooks/{webhook_id}
+
+# Get delivery history
+curl http://localhost:8080/webhooks/{webhook_id}/deliveries
+
+# Get webhook statistics
+curl http://localhost:8080/webhooks/stats
+```
+
+### Delivery Status
+
+Webhook deliveries are tracked with the following statuses:
+
+- `pending` - Delivery not yet attempted
+- `delivered` - Successfully delivered
+- `failed` - Delivery failed after all retries
+- `retrying` - Currently retrying delivery
+
+### Error Handling
+
+Webhooks include comprehensive error handling:
+
+- **Timeout**: Configurable timeout per webhook
+- **Retries**: Automatic retry with exponential backoff
+- **Dead Letter**: Failed deliveries are logged for debugging
+- **Circuit Breaker**: Temporary suspension of failing webhooks
+
+### Integration Examples
+
+#### Slack Integration
+```python
+import requests
+import json
+
+def handle_finopsguard_webhook(request):
+    """Handle FinOpsGuard webhook for Slack notifications."""
+    payload = request.json
+    
+    if payload['event_type'] == 'budget.exceeded':
+        message = {
+            "text": f"🚨 Budget Exceeded!",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*Environment:* {payload['data']['environment']}\n*Estimated Cost:* ${payload['data']['estimated_monthly_cost']:.2f}\n*Budget Limit:* ${payload['data']['budget_limit']:.2f}"
+                    }
+                }
+            ]
+        }
+        
+        requests.post(
+            "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+            json=message
+        )
+```
+
+#### Discord Integration
+```python
+def handle_finopsguard_webhook(request):
+    """Handle FinOpsGuard webhook for Discord notifications."""
+    payload = request.json
+    
+    embed = {
+        "title": "💰 Cost Anomaly Detected",
+        "color": 0xff0000,
+        "fields": [
+            {
+                "name": "Environment",
+                "value": payload['data']['environment'],
+                "inline": True
+            },
+            {
+                "name": "Estimated Cost",
+                "value": f"${payload['data']['estimated_monthly_cost']:.2f}",
+                "inline": True
+            },
+            {
+                "name": "Budget Limit",
+                "value": f"${payload['data']['budget_limit']:.2f}",
+                "inline": True
+            }
+        ],
+        "timestamp": payload['timestamp']
+    }
+    
+    requests.post(
+        "https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK",
+        json={"embeds": [embed]}
+    )
+```
+
+### Best Practices
+
+1. **Always verify signatures** to ensure webhook authenticity
+2. **Handle duplicates** - webhooks may be delivered multiple times
+3. **Respond quickly** - webhook endpoints should respond within 30 seconds
+4. **Use HTTPS** - never use HTTP for webhook endpoints in production
+5. **Monitor delivery status** - track failed deliveries and retry patterns
+6. **Test webhooks** - use webhook testing tools during development
+
+**See [docs/webhooks.md](docs/webhooks.md) for comprehensive webhook documentation.**
+
 ## Caching
 
 FinOpsGuard uses Redis for intelligent caching to dramatically improve performance:
@@ -1181,22 +1460,28 @@ For comprehensive deployment documentation, see:
 - ✅ Docker Compose deployment with full stack (database + caching + monitoring)
 - ✅ Kubernetes deployment with HA and auto-scaling
 - ✅ MCP agent integration with 12+ platforms
-- ✅ **Usage Integration**: CloudWatch/Billing API for historical data (AWS, GCP, Azure)
   - ✅ AWS CloudWatch metrics and Cost Explorer integration
   - ✅ GCP Cloud Monitoring and BigQuery billing export
   - ✅ Azure Monitor and Cost Management integration
   - ✅ REST API endpoints for usage data
   - ✅ Intelligent caching with configurable TTL
+- ✅ **Webhooks**: Event-driven notifications for cost anomalies and policy changes
+  - ✅ Cost anomaly detection (budget violations, cost spikes, high-cost resources)
+  - ✅ Policy event notifications (create, update, delete)
+  - ✅ Robust delivery with retry logic and timeout handling
+  - ✅ HMAC signature verification for webhook security
+  - ✅ Background task processing for asynchronous delivery
+  - ✅ Complete webhook management API (CRUD operations)
+  - ✅ Delivery tracking and statistics
 - ✅ Audit Logging: Detailed access logs and compliance reporting
-- ✅ Complete test suite (160+ tests including usage integration)
+- ✅ Complete test suite (245+ tests including webhook functionality)
 
 ### Next Phase (0.3)
-- **Azure Terraform Parser Enhancement**: Complete Azure resource parsing coverage
 - **Enhanced Caching**: Distributed caching with Redis Cluster
 - **Enhanced Admin UI**: Advanced analytics and reporting dashboards with usage visualization
 - **Multi-tenant Support**: Organization and team management
-- **Webhooks**: Event-driven notifications for cost anomalies
 - **Usage Analytics Dashboard**: Visualize historical usage trends and cost patterns
+- **Webhook UI**: Web-based webhook configuration and monitoring interface
 
 ### Future (0.4+)
 - **ML Cost Forecasting**: Seasonal patterns and usage prediction

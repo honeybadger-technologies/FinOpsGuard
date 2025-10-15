@@ -6,7 +6,7 @@ import json
 from typing import Optional, Dict, List
 from pathlib import Path
 
-from finopsguard.types.audit import (
+from ..types.audit import (
     AuditEvent,
     AuditEventType,
     AuditSeverity

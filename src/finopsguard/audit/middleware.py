@@ -8,7 +8,7 @@ from typing import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from finopsguard.types.audit import AuditEventType, AuditSeverity
+from ..types.audit import AuditEventType, AuditSeverity
 from .logger import get_audit_logger
 
 logger = logging.getLogger(__name__)
