@@ -1,0 +1,249 @@
+# Example GCP Infrastructure with Ansible
+# Demonstrates comprehensive GCP resource support in FinOpsGuard
+
+- hosts: localhost
+  vars:
+    gcp_region: us-central1
+    gcp_zone: us-central1-a
+    environment: production
+    project_name: finopsguard-demo
+  
+  tasks:
+    # ============================================================================
+    # COMPUTE
+    # ============================================================================
+    
+    - name: Create GCP Compute Engine Instance
+      gcp_compute_instance:
+        name: "{{ project_name }}-web-server"
+        machine_type: n1-standard-2
+        zone: "{{ gcp_zone }}"
+        image: projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20230101
+        disk_size_gb: 100
+        disk_type: pd-standard
+        network: default
+        tags:
+          Environment: "{{ environment }}"
+          Name: "{{ project_name }}-web"
+          Project: FinOpsGuard
+    
+    - name: Create Instance Group
+      gcp_compute_instance_group:
+        name: "{{ project_name }}-app-ig"
+        zone: "{{ gcp_zone }}"
+        size: 3
+        template:
+          machine_type: n1-standard-2
+          image: projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20230101
+        network: default
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create GKE Cluster
+      gcp_container_cluster:
+        name: "{{ project_name }}-cluster"
+        zone: "{{ gcp_zone }}"
+        cluster_version: "1.24"
+        initial_node_count: 3
+        node_config:
+          machine_type: e2-medium
+          disk_size_gb: 100
+          disk_type: pd-standard
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Function
+      gcp_cloudfunctions_function:
+        name: "{{ project_name }}-data-processor"
+        runtime: python39
+        entry_point: process_data
+        memory: 512
+        timeout: 60
+        region: "{{ gcp_region }}"
+        source_archive_url: gs://{{ project_name }}-functions/data-processor.zip
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Run Service
+      gcp_run_service:
+        name: "{{ project_name }}-web-service"
+        region: "{{ gcp_region }}"
+        template:
+          spec:
+            containers:
+              - image: gcr.io/cloudrun/hello
+                ports:
+                  - container_port: 8080
+                resources:
+                  limits:
+                    cpu: 1000m
+                    memory: 512Mi
+            container_concurrency: 1000
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create App Engine Application
+      gcp_appengine_application:
+        name: "{{ project_name }}-app"
+        location_id: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # DATABASE
+    # ============================================================================
+    
+    - name: Create Cloud SQL Instance
+      gcp_sql_instance:
+        name: "{{ project_name }}-database"
+        database_version: POSTGRES_14
+        region: "{{ gcp_region }}"
+        settings:
+          tier: db-n1-standard-1
+          disk_size: 100
+          disk_type: PD_SSD
+          backup_configuration:
+            enabled: true
+            start_time: "03:00"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create BigQuery Dataset
+      gcp_bigquery_dataset:
+        name: "{{ project_name }}_analytics"
+        description: "Analytics dataset for {{ project_name }}"
+        location: "{{ gcp_region }}"
+        default_table_expiration_ms: 2592000000  # 30 days
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Memorystore Redis
+      gcp_redis_instance:
+        name: "{{ project_name }}-redis"
+        memory_size_gb: 1
+        tier: STANDARD_HA
+        redis_version: REDIS_6_X
+        authorized_network: projects/{{ project_name }}/global/networks/default
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Spanner Instance
+      gcp_spanner_instance:
+        name: "{{ project_name }}-spanner"
+        display_name: "Spanner instance for {{ project_name }}"
+        config:
+          name: regional-{{ gcp_region }}
+          num_nodes: 1
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # STORAGE
+    # ============================================================================
+    
+    - name: Create Cloud Storage Bucket
+      gcp_storage_bucket:
+        name: "{{ project_name }}-data-bucket"
+        storage_class: STANDARD
+        location: "{{ gcp_region }}"
+        versioning:
+          enabled: true
+        lifecycle:
+          rule:
+            - action:
+                type: Delete
+              condition:
+                age: 365
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # NETWORKING
+    # ============================================================================
+    
+    - name: Create Load Balancer
+      gcp_compute_url_map:
+        name: "{{ project_name }}-lb"
+        default_service: "{{ project_name }}-backend-service"
+        description: "Load balancer for {{ project_name }}"
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Endpoints Service
+      gcp_endpoints_service:
+        name: "{{ project_name }}-api"
+        service_name: "{{ project_name }}-api.endpoints.{{ project_name }}.cloud.goog"
+        openapi_spec: |
+          swagger: "2.0"
+          info:
+            title: "{{ project_name }} API"
+            description: "API for {{ project_name }}"
+            version: "1.0.0"
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # ANALYTICS & DATA
+    # ============================================================================
+    
+    - name: Create Pub/Sub Topic
+      gcp_pubsub_topic:
+        name: "{{ project_name }}-events"
+        message_retention_duration: "604800s"  # 7 days
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Pub/Sub Subscription
+      gcp_pubsub_subscription:
+        name: "{{ project_name }}-events-sub"
+        topic: "{{ project_name }}-events"
+        ack_deadline_seconds: 60
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Scheduler Job
+      gcp_cloudscheduler_job:
+        name: "{{ project_name }}-cleanup-job"
+        schedule: "0 2 * * *"  # Daily at 2 AM
+        time_zone: "America/New_York"
+        http_target:
+          uri: "https://{{ project_name }}-api.endpoints.{{ project_name }}.cloud.goog/cleanup"
+          http_method: POST
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cloud Tasks Queue
+      gcp_cloudtasks_queue:
+        name: "{{ project_name }}-task-queue"
+        rate_limits:
+          max_dispatches_per_second: 100
+          max_burst_size: 1000
+        retry_config:
+          max_attempts: 3
+          max_retry_duration: "3600s"
+        region: "{{ gcp_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard

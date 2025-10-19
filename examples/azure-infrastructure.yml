@@ -1,0 +1,278 @@
+# Example Azure Infrastructure with Ansible
+# Demonstrates comprehensive Azure resource support in FinOpsGuard
+
+- hosts: localhost
+  vars:
+    azure_location: eastus
+    resource_group: "{{ project_name }}-rg"
+    environment: production
+    project_name: finopsguard-demo
+  
+  tasks:
+    # ============================================================================
+    # COMPUTE
+    # ============================================================================
+    
+    - name: Create Azure Virtual Machine
+      azure_rm_virtualmachine:
+        name: "{{ project_name }}-web-vm"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        vm_size: Standard_B2s
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: "18.04-LTS"
+          version: latest
+        admin_username: azureuser
+        ssh_password_enabled: false
+        storage_account: "{{ project_name }}storage"
+        storage_container: vhds
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Virtual Machine Scale Set
+      azure_rm_virtualmachinescaleset:
+        name: "{{ project_name }}-app-vmss"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        vm_size: Standard_B2s
+        capacity: 3
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: "18.04-LTS"
+          version: latest
+        admin_username: azureuser
+        upgrade_policy: Manual
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Container Instance
+      azure_rm_containerinstance:
+        name: "{{ project_name }}-web-container"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        image: nginx:latest
+        cpu_cores: 1
+        memory_gb: 1.5
+        ports:
+          - port: 80
+            protocol: TCP
+        environment_variables:
+          - name: ENV
+            value: "{{ environment }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create AKS Cluster
+      azure_rm_aks:
+        name: "{{ project_name }}-cluster"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        dns_prefix: "{{ project_name }}-cluster"
+        kubernetes_version: "1.24.0"
+        agent_pool_profiles:
+          - name: default
+            count: 2
+            vm_size: Standard_D2s_v3
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create App Service Plan
+      azure_rm_appserviceplan:
+        name: "{{ project_name }}-asp"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        sku: B1
+        kind: Linux
+        reserved: true
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create App Service
+      azure_rm_webapp:
+        name: "{{ project_name }}-webapp"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        app_service_plan: "{{ project_name }}-asp"
+        deployment_source:
+          type: git
+          repository_url: https://github.com/example/webapp.git
+          branch: main
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Function App
+      azure_rm_functionapp:
+        name: "{{ project_name }}-func"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        app_service_plan: "{{ project_name }}-asp"
+        storage_account: "{{ project_name }}storage"
+        app_settings:
+          FUNCTIONS_WORKER_RUNTIME: python
+          AzureWebJobsStorage: "DefaultEndpointsProtocol=https;AccountName={{ project_name }}storage;EndpointSuffix=core.windows.net"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # DATABASE
+    # ============================================================================
+    
+    - name: Create SQL Server
+      azure_rm_sqlserver:
+        name: "{{ project_name }}-sqlserver"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        admin_username: sqladmin
+        version: "12.0"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create SQL Database
+      azure_rm_sqldatabase:
+        name: "{{ project_name }}-database"
+        resource_group: "{{ resource_group }}"
+        server_name: "{{ project_name }}-sqlserver"
+        location: "{{ azure_location }}"
+        service_objective: S0
+        collation: SQL_Latin1_General_CP1_CI_AS
+        max_size_bytes: 1073741824  # 1 GB
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Storage Account
+      azure_rm_storageaccount:
+        name: "{{ project_name }}storage"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        account_type: Standard_LRS
+        access_tier: Hot
+        https_traffic_only: true
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Redis Cache
+      azure_rm_rediscache:
+        name: "{{ project_name }}-redis"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        sku: Standard
+        capacity: 1
+        family: C
+        enable_non_ssl_port: false
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Cosmos DB Account
+      azure_rm_cosmosdbaccount:
+        name: "{{ project_name }}-cosmos"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        offer_type: Standard
+        kind: GlobalDocumentDB
+        consistency_policy:
+          default_consistency_level: Session
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # MESSAGING & INTEGRATION
+    # ============================================================================
+    
+    - name: Create Service Bus Namespace
+      azure_rm_servicebus:
+        name: "{{ project_name }}-sb"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        sku: Standard
+        capacity: 1
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Service Bus Topic
+      azure_rm_servicebustopic:
+        name: "{{ project_name }}-events"
+        resource_group: "{{ resource_group }}"
+        namespace: "{{ project_name }}-sb"
+        enable_partitioning: false
+        enable_express: false
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Service Bus Queue
+      azure_rm_servicebusqueue:
+        name: "{{ project_name }}-tasks"
+        resource_group: "{{ resource_group }}"
+        namespace: "{{ project_name }}-sb"
+        enable_partitioning: false
+        enable_express: false
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Event Hub
+      azure_rm_eventhub:
+        name: "{{ project_name }}-events"
+        resource_group: "{{ resource_group }}"
+        namespace_name: "{{ project_name }}-eh-namespace"
+        message_retention: 1
+        partition_count: 2
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # API MANAGEMENT & INTEGRATION
+    # ============================================================================
+    
+    - name: Create API Management
+      azure_rm_apimanagement:
+        name: "{{ project_name }}-apim"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        sku: Developer
+        publisher_name: "FinOpsGuard Team"
+        publisher_email: "admin@finopsguard.com"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Load Balancer
+      azure_rm_loadbalancer:
+        name: "{{ project_name }}-lb"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        sku: Basic
+        frontend_ip_configurations:
+          - name: "{{ project_name }}-frontend-ip"
+            public_ip_address_name: "{{ project_name }}-public-ip"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Logic App
+      azure_rm_logicapp:
+        name: "{{ project_name }}-workflow"
+        resource_group: "{{ resource_group }}"
+        location: "{{ azure_location }}"
+        app_service_plan: "{{ project_name }}-asp"
+        workflow_state: Enabled
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard

@@ -5,7 +5,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 ## Overview
 - **Cost Analysis**: Analyzes IaC changes and provides accurate cost projections
 - **Policy Engine**: Enforces budget rules and resource constraints with blocking/advisory modes
-- **Multi-Cloud Support**: AWS and GCP pricing adapters with support for multiple resource types
+- **Multi-Cloud Support**: AWS, GCP, and Azure pricing adapters with support for multiple resource types
 - **CI/CD Integration**: Seamless integration with GitHub/GitLab CI for automated cost governance
 - **FastAPI Server**: Modern Python API with auto-generated OpenAPI documentation
 
@@ -60,6 +60,7 @@ MCP agent providing cost-aware guardrails for IaC in CI/CD with advanced policy 
 
 ### Features
 - ✅ **Terraform Parser**: Modular HCL parsing with 60+ resource types across AWS (24), GCP (18), and Azure (18)
+- ✅ **Ansible Parser**: Comprehensive YAML parsing with 58+ module types across AWS (20), GCP (18), and Azure (20)
 - ✅ **Cost Simulation**: Accurate monthly/weekly cost projections for multi-cloud infrastructure
 - ✅ **Policy Engine**: Budget and rule-based policies with DSL support
 - ✅ **Blocking Mode**: Policy violations can block deployments
@@ -98,11 +99,15 @@ src/finopsguard/
   cache/               # Redis caching layer (pricing, analysis, policies)
   database/            # PostgreSQL persistent storage (policies, analyses, audit logs)
   engine/              # Cost simulation and policy evaluation
-  parsers/             # Terraform HCL parsers (modular: AWS, GCP, Azure)
-    terraform.py       # Main orchestrator (93 lines)
-    aws_tf_parser.py   # AWS resource parsing (24 types)
-    gcp_tf_parser.py   # GCP resource parsing (18 types)
-    azure_tf_parser.py # Azure resource parsing (18 types)
+  parsers/             # Infrastructure parsers (Terraform HCL + Ansible YAML)
+    terraform.py       # Terraform orchestrator (93 lines)
+    aws_tf_parser.py   # AWS Terraform parsing (24 types)
+    gcp_tf_parser.py   # GCP Terraform parsing (18 types)
+    azure_tf_parser.py # Azure Terraform parsing (18 types)
+    ansible.py         # Ansible orchestrator (210 lines)
+    aws_ansible_parser.py   # AWS Ansible parsing (20 types)
+    gcp_ansible_parser.py   # GCP Ansible parsing (18 types)
+    azure_ansible_parser.py # Azure Ansible parsing (20 types)
   storage/             # Hybrid storage (in-memory + database)
   types/               # Pydantic models and policy definitions
   webhooks/            # Webhook system for event-driven notifications
@@ -117,11 +122,17 @@ src/finopsguard/
   metrics/             # Prometheus metrics
   
 tests/
-  unit/                # Unit tests (245+ tests: auth, cache, database, pricing, policies, usage, parsers, audit, webhooks)
+  unit/                # Unit tests (260+ tests: auth, cache, database, pricing, policies, usage, parsers, audit, webhooks)
   integration/         # Integration tests (25+ tests)
 
-examples/              # Example scripts and usage demonstrations
+examples/              # Example scripts and infrastructure definitions
   usage_integration_example.py  # Complete usage integration examples
+  aws-infrastructure.tf         # AWS Terraform example
+  gcp-infrastructure.tf         # GCP Terraform example
+  azure-infrastructure.tf       # Azure Terraform example
+  aws-infrastructure.yml        # AWS Ansible example
+  gcp-infrastructure.yml        # GCP Ansible example
+  azure-infrastructure.yml      # Azure Ansible example
 
 static/                # Admin UI static files
   css/                 # Stylesheets
@@ -149,6 +160,8 @@ docs/
   authentication.md    # Authentication & authorization guide (API keys, JWT, OAuth2, mTLS)
   pricing.md           # Real-time and static pricing configuration
   usage-integration.md # Usage integration guide (CloudWatch, Cloud Monitoring, Cost Management)
+  terraform-parsing.md # Terraform HCL parsing guide
+  ansible-parsing.md   # Ansible YAML parsing guide
 
 deploy/
   kubernetes/          # Kubernetes manifests

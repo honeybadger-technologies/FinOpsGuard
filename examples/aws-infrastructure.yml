@@ -1,0 +1,254 @@
+# Example AWS Infrastructure with Ansible
+# Demonstrates comprehensive AWS resource support in FinOpsGuard
+
+- hosts: localhost
+  vars:
+    aws_region: us-east-1
+    environment: production
+    project_name: finopsguard-demo
+  
+  tasks:
+    # ============================================================================
+    # COMPUTE
+    # ============================================================================
+    
+    - name: Create EC2 Instance
+      ec2_instance:
+        name: "{{ project_name }}-web-server"
+        instance_type: t3.medium
+        image_id: ami-0c55b159cbfafe1f0
+        region: "{{ aws_region }}"
+        key_name: my-key
+        security_groups:
+          - web-sg
+        tags:
+          Environment: "{{ environment }}"
+          Name: "{{ project_name }}-web"
+          Project: FinOpsGuard
+    
+    - name: Create Auto Scaling Group
+      ec2_asg:
+        name: "{{ project_name }}-app-asg"
+        launch_template:
+          instance_type: t3.large
+          image_id: ami-0c55b159cbfafe1f0
+        desired_capacity: 3
+        min_size: 2
+        max_size: 10
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create EKS Cluster
+      eks_cluster:
+        name: "{{ project_name }}-cluster"
+        region: "{{ aws_region }}"
+        version: "1.24"
+        role_arn: arn:aws:iam::123456789012:role/EKSClusterRole
+        subnets:
+          - subnet-12345678
+          - subnet-87654321
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Lambda Function
+      lambda_function:
+        name: "{{ project_name }}-data-processor"
+        runtime: python3.11
+        handler: index.handler
+        memory_size: 1024
+        timeout: 300
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create ECS Cluster
+      ecs_cluster:
+        name: "{{ project_name }}-ecs-cluster"
+        region: "{{ aws_region }}"
+        capacity_providers:
+          - FARGATE
+          - FARGATE_SPOT
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create ECS Service
+      ecs_service:
+        name: "{{ project_name }}-web-service"
+        cluster: "{{ project_name }}-ecs-cluster"
+        task_definition: "{{ project_name }}-web-task"
+        desired_count: 3
+        launch_type: FARGATE
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # DATABASE
+    # ============================================================================
+    
+    - name: Create RDS Instance
+      rds_instance:
+        name: "{{ project_name }}-database"
+        engine: postgres
+        engine_version: "14.7"
+        instance_class: db.t3.large
+        allocated_storage: 100
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create DynamoDB Table
+      dynamodb_table:
+        name: "{{ project_name }}-users"
+        billing_mode: PAY_PER_REQUEST
+        hash_key: UserId
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create ElastiCache Redis Cluster
+      elasticache_cluster:
+        cluster_id: "{{ project_name }}-redis"
+        engine: redis
+        node_type: cache.t3.medium
+        num_cache_nodes: 1
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create ElastiCache Redis Replication Group
+      elasticache_replication_group:
+        replication_group_id: "{{ project_name }}-redis-cluster"
+        replication_group_description: "Redis cluster for {{ project_name }}"
+        node_type: cache.m5.large
+        number_cache_clusters: 3
+        automatic_failover_enabled: true
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # STORAGE
+    # ============================================================================
+    
+    - name: Create S3 Bucket
+      s3_bucket:
+        name: "{{ project_name }}-data-bucket"
+        region: "{{ aws_region }}"
+        versioning: enabled
+        encryption:
+          algorithm: AES256
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # NETWORKING
+    # ============================================================================
+    
+    - name: Create Application Load Balancer
+      elb_application_lb:
+        name: "{{ project_name }}-web-lb"
+        load_balancer_type: application
+        subnets:
+          - subnet-12345678
+          - subnet-87654321
+        security_groups:
+          - sg-12345678
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create CloudFront Distribution
+      cloudfront_distribution:
+        name: "{{ project_name }}-cdn"
+        enabled: true
+        price_class: PriceClass_100
+        origins:
+          - domain_name: "{{ project_name }}-data-bucket.s3.amazonaws.com"
+            origin_id: S3-origin
+        default_cache_behavior:
+          target_origin_id: S3-origin
+          viewer_protocol_policy: redirect-to-https
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    # ============================================================================
+    # ANALYTICS & DATA
+    # ============================================================================
+    
+    - name: Create Kinesis Stream
+      kinesis_stream:
+        name: "{{ project_name }}-event-stream"
+        shard_count: 4
+        retention_period: 24
+        stream_mode: PROVISIONED
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create SNS Topic
+      sns_topic:
+        name: "{{ project_name }}-alerts"
+        display_name: "System Alerts for {{ project_name }}"
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create SQS Queue
+      sqs_queue:
+        name: "{{ project_name }}-task-queue"
+        delay_seconds: 0
+        max_message_size: 262144
+        message_retention_seconds: 345600
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create Step Functions State Machine
+      stepfunctions_state_machine:
+        name: "{{ project_name }}-workflow"
+        role_arn: arn:aws:iam::123456789012:role/StepFunctionsRole
+        definition: |
+          {
+            "StartAt": "ProcessData",
+            "States": {
+              "ProcessData": {
+                "Type": "Task",
+                "Resource": "arn:aws:lambda:{{ aws_region }}:123456789012:function:{{ project_name }}-data-processor",
+                "End": true
+              }
+            }
+          }
+        state_machine_type: STANDARD
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard
+    
+    - name: Create API Gateway REST API
+      api_gateway:
+        name: "{{ project_name }}-rest-api"
+        description: "REST API for {{ project_name }}"
+        endpoint_configuration:
+          types: REGIONAL
+        region: "{{ aws_region }}"
+        tags:
+          Environment: "{{ environment }}"
+          Project: FinOpsGuard

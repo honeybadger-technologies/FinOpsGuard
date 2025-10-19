@@ -17,6 +17,7 @@ from ..types.api import (
 from ..types.models import PolicyEvaluation
 from ..engine.policy_engine import PolicyEngine
 from ..parsers.terraform import parse_terraform_to_crmodel
+from ..parsers.ansible import parse_ansible_to_crmodel
 from ..engine.simulation import simulate_cost
 from ..adapters.pricing.aws_static import list_aws_ec2_ondemand
 from ..storage.analyses import add_analysis, AnalysisRecord, list_analyses
@@ -60,15 +61,23 @@ async def check_cost_impact(req: CheckRequest) -> CheckResponse:
         except Exception:
             raise ValueError('invalid_payload_encoding')
         
-        # Try to get cached parsed Terraform
-        cached_parsed = analysis_cache.get_parsed_terraform(decoded)
-        if cached_parsed:
-            from ..types.models import CanonicalResourceModel
-            cr_model = CanonicalResourceModel(**cached_parsed)
+        # Parse based on IAC type
+        from ..types.models import CanonicalResourceModel
+        
+        if req.iac_type == 'terraform':
+            # Try to get cached parsed Terraform
+            cached_parsed = analysis_cache.get_parsed_terraform(decoded)
+            if cached_parsed:
+                cr_model = CanonicalResourceModel(**cached_parsed)
+            else:
+                cr_model = parse_terraform_to_crmodel(decoded)
+                # Cache the parsed result
+                analysis_cache.set_parsed_terraform(decoded, cr_model.model_dump())
+        elif req.iac_type == 'ansible':
+            # Parse Ansible playbook
+            cr_model = parse_ansible_to_crmodel(decoded)
         else:
-            cr_model = parse_terraform_to_crmodel(decoded)
-            # Cache the parsed result
-            analysis_cache.set_parsed_terraform(decoded, cr_model.model_dump())
+            raise ValueError('unsupported_iac_type')
     else:
         from ..types.models import CanonicalResourceModel
         cr_model = CanonicalResourceModel(resources=[])
@@ -193,17 +202,17 @@ async def evaluate_policy(req: PolicyRequest) -> PolicyResponse:
     """Evaluate policy against IaC"""
     try:
         # Parse the IaC payload
+        try:
+            decoded = base64.b64decode(req.iac_payload).decode('utf-8')
+        except Exception:
+            raise ValueError('invalid_payload_encoding')
+        
         if req.iac_type == 'terraform':
-            try:
-                decoded = base64.b64decode(req.iac_payload).decode('utf-8')
-            except Exception:
-                raise ValueError('invalid_payload_encoding')
-            
-            from ..parsers.terraform import parse_terraform_to_crmodel
             cr_model = parse_terraform_to_crmodel(decoded)
+        elif req.iac_type == 'ansible':
+            cr_model = parse_ansible_to_crmodel(decoded)
         else:
-            from ..types.models import CanonicalResourceModel
-            cr_model = CanonicalResourceModel(resources=[])
+            raise ValueError('unsupported_iac_type')
         
         # Get the specific policy
         policy = policy_engine.get_policy(req.policy_id)
