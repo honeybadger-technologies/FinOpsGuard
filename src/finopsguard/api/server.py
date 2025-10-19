@@ -5,6 +5,7 @@ FastAPI server for FinOpsGuard MCP endpoints
 import os
 import logging
 from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,10 +36,40 @@ from .audit_endpoints import router as audit_router
 # Import webhook endpoints
 from .webhook_endpoints import router as webhook_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown events"""
+    # Startup
+    logger.info("Starting FinOpsGuard application...")
+    
+    # Start webhook background tasks
+    try:
+        from ..webhooks.tasks import start_webhook_background_tasks
+        await start_webhook_background_tasks()
+        logger.info("Webhook background tasks started")
+    except Exception as e:
+        logger.error(f"Failed to start webhook background tasks: {e}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down FinOpsGuard application...")
+    
+    # Stop webhook background tasks
+    try:
+        from ..webhooks.tasks import stop_webhook_background_tasks
+        await stop_webhook_background_tasks()
+        logger.info("Webhook background tasks stopped")
+    except Exception as e:
+        logger.error(f"Failed to stop webhook background tasks: {e}")
+
+
 app = FastAPI(
     title="FinOpsGuard",
     description="MCP agent providing cost-aware guardrails for IaC in CI/CD",
-    version="0.2.0"
+    version="0.2.0",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -73,30 +104,6 @@ AUDIT_MIDDLEWARE_ENABLED = os.getenv("AUDIT_MIDDLEWARE_ENABLED", "true").lower()
 if AUDIT_MIDDLEWARE_ENABLED:
     from ..audit.middleware import AuditMiddleware
     app.add_middleware(AuditMiddleware)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Startup event handler"""
-    # Start webhook background tasks
-    try:
-        from ..webhooks.tasks import start_webhook_background_tasks
-        await start_webhook_background_tasks()
-        logger.info("Webhook background tasks started")
-    except Exception as e:
-        logger.error(f"Failed to start webhook background tasks: {e}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown event handler"""
-    # Stop webhook background tasks
-    try:
-        from ..webhooks.tasks import stop_webhook_background_tasks
-        await stop_webhook_background_tasks()
-        logger.info("Webhook background tasks stopped")
-    except Exception as e:
-        logger.error(f"Failed to stop webhook background tasks: {e}")
 
 
 @app.get("/mcp")

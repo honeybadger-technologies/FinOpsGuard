@@ -2,7 +2,7 @@
 
 import pytest
 import yaml
-from src.finopsguard.parsers.ansible import parse_ansible_to_crmodel, get_ansible_default_regions
+from finopsguard.parsers.ansible import parse_ansible_to_crmodel, get_ansible_default_regions
 
 
 class TestAnsibleParser:
