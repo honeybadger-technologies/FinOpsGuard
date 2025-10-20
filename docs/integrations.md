@@ -203,7 +203,7 @@ pricing = client.get_pricing("aws", region="us-east-1")
 
 **Option 1: Pre-built Workflow**
 
-Copy `.github/workflows/finopsguard-check.yml` to your repository and customize:
+Copy `examples/.github/workflows/finopsguard-check.yml` to your repository and customize:
 
 ```yaml
 name: Cost Check
@@ -274,6 +274,11 @@ jobs:
 ### GitLab CI
 
 **Option 1: Include Template**
+
+Copy the template from the examples directory first:
+```bash
+cp examples/.gitlab/ci-templates/finopsguard.yml .gitlab/ci-templates/
+```
 
 ```yaml
 include:

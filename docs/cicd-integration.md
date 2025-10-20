@@ -49,13 +49,17 @@ curl http://localhost:8080/healthz
 ### 2. Choose Your Integration Method
 
 #### Option A: GitHub Actions (Recommended for GitHub repos)
-Copy the workflow file to your repository:
+Copy the workflow file from the examples directory to your repository:
 ```bash
-cp .github/workflows/finopsguard-check.yml your-repo/.github/workflows/
+cp examples/.github/workflows/finopsguard-check.yml your-repo/.github/workflows/
 ```
 
 #### Option B: GitLab CI (Recommended for GitLab repos)
-Include the template in your `.gitlab-ci.yml`:
+Copy the template from the examples directory and include it in your `.gitlab-ci.yml`:
+```bash
+cp examples/.gitlab/ci-templates/finopsguard.yml .gitlab/ci-templates/
+```
+
 ```yaml
 include:
   - local: '.gitlab/ci-templates/finopsguard.yml'
@@ -93,9 +97,9 @@ FINOPSGUARD_MONTHLY_BUDGET=500
 
 ### Setup
 
-1. Copy the workflow file to your repository:
+1. Copy the workflow file from the examples directory to your repository:
 ```bash
-cp .github/workflows/finopsguard-check.yml .github/workflows/
+cp examples/.github/workflows/finopsguard-check.yml .github/workflows/
 ```
 
 2. Configure repository variables and secrets:
@@ -144,9 +148,9 @@ The workflow will post a comment like this on your pull request:
 
 ### Setup
 
-1. Copy the CI template to your repository:
+1. Copy the CI template from the examples directory to your repository:
 ```bash
-cp .gitlab/ci-templates/finopsguard.yml .gitlab/ci-templates/
+cp examples/.gitlab/ci-templates/finopsguard.yml .gitlab/ci-templates/
 ```
 
 2. Include it in your `.gitlab-ci.yml`:

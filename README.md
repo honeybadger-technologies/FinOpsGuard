@@ -142,13 +142,15 @@ static/                # Admin UI static files
 scripts/               # CI/CD integration scripts
   finopsguard-cicd.sh  # Universal CI/CD integration script
 
-.github/
-  workflows/           # GitHub Actions workflows
-    finopsguard-check.yml
-
-.gitlab/
-  ci-templates/        # GitLab CI job templates
-    finopsguard.yml
+examples/              # Example configurations and templates
+  .github/
+    workflows/         # GitHub Actions workflow examples
+      finopsguard-check.yml
+      finopsguard-pr-comment.yml
+  .gitlab/
+    ci-templates/      # GitLab CI job template examples
+      finopsguard.yml
+    ci-example.yml     # Example GitLab CI configuration
 
 docs/
   requirements.md      # Detailed requirements and specifications
@@ -466,14 +468,15 @@ FinOpsGuard provides comprehensive CI/CD integration for automated cost governan
 
 ### GitHub Actions
 ```yaml
-# Copy .github/workflows/finopsguard-check.yml to your repository
+# Copy examples/.github/workflows/finopsguard-check.yml to your repository
 name: FinOpsGuard Cost Check
 on: [pull_request, push]
 ```
 
 ### GitLab CI
 ```yaml
-# Include in your .gitlab-ci.yml
+# Copy examples/.gitlab/ci-templates/finopsguard.yml to .gitlab/ci-templates/
+# Then include in your .gitlab-ci.yml
 include:
   - local: '.gitlab/ci-templates/finopsguard.yml'
 ```
@@ -577,7 +580,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Run FinOpsGuard
-        uses: ./.github/workflows/finopsguard-check.yml
+        uses: ./.github/workflows/finopsguard-check.yml  # After copying from examples/
         with:
           environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
           budget: 1000
@@ -598,7 +601,7 @@ Or use the universal script:
 
 #### 4. **GitLab CI Integration**
 
-Include the template in your `.gitlab-ci.yml`:
+Copy the template from examples and include it in your `.gitlab-ci.yml`:
 
 ```yaml
 include:
