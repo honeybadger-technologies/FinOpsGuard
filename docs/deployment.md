@@ -121,6 +121,9 @@ Key environment variables (see `env.example` for full list):
 | `REDIS_ENABLED` | false | Enable Redis caching |
 | `REDIS_HOST` | redis | Redis host |
 | `REDIS_PORT` | 6379 | Redis port |
+| `REDIS_DB` | 0 | Redis database index (standalone) |
+| `REDIS_CLUSTER_ENABLED` | false | Enable Redis Cluster mode |
+| `REDIS_CLUSTER_NODES` | _(empty)_ | Comma-separated `host:port` list for cluster |
 | `AWS_REGION` | us-east-1 | Default AWS region |
 | `GCP_REGION` | us-central1 | Default GCP region |
 

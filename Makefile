@@ -46,22 +46,22 @@ venv: ## Create Python virtual environment
 	@echo "Virtual environment created. Activate with: source $(VENV)/bin/activate"
 
 install: ## Install Python dependencies
-	pip install -r requirements.txt
+	$(PYTHON) -m pip install -r requirements.txt
 
 install-dev: install ## Install development dependencies
-	pip install pytest pytest-asyncio httpx black flake8 mypy
+	$(PYTHON) -m pip install pytest pytest-asyncio httpx black flake8 mypy
 
 test: ## Run all tests
-	PYTHONPATH=src pytest tests/ -v
+	PYTHONPATH=src $(PYTHON) -m pytest tests/ -v
 
 test-unit: ## Run unit tests only
-	PYTHONPATH=src pytest tests/unit/ -v
+	PYTHONPATH=src $(PYTHON) -m pytest tests/unit/ -v
 
 test-integration: ## Run integration tests only
-	PYTHONPATH=src pytest tests/integration/ -v
+	PYTHONPATH=src $(PYTHON) -m pytest tests/integration/ -v
 
 test-coverage: ## Run tests with coverage report
-	PYTHONPATH=src pytest tests/ --cov=finopsguard --cov-report=html --cov-report=term
+	PYTHONPATH=src $(PYTHON) -m pytest tests/ --cov=finopsguard --cov-report=html --cov-report=term
 
 lint: ## Run linters
 	flake8 src/finopsguard tests/
@@ -217,7 +217,7 @@ metrics: ## View Prometheus metrics
 
 # CI/CD
 ci-test: ## Run tests in CI environment
-	PYTHONPATH=src pytest tests/ -v --tb=short
+	PYTHONPATH=src $(PYTHON) -m pytest tests/ -v --tb=short
 
 ci-build: docker-build ## Build for CI/CD pipeline
 

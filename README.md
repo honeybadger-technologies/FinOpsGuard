@@ -1378,6 +1378,7 @@ FinOpsGuard uses Redis for intelligent caching to dramatically improve performan
 - **Analysis Results**: Full cost analyses cached for 1 hour
 - **Parsed Terraform**: Parsed IaC cached for 30 minutes
 - **Policy Evaluations**: Policy results cached for 30 minutes
+- **Distributed Mode**: Native Redis Cluster support for horizontal scaling
 - **Automatic TTL**: Smart expiration based on data volatility
 - **Cache Invalidation**: Automatic invalidation on policy updates
 
@@ -1393,6 +1394,19 @@ echo "REDIS_ENABLED=true" >> .env
 docker-compose restart
 ```
 
+#### Redis Cluster Mode
+
+For high availability deployments, enable Redis Cluster:
+
+```bash
+echo "REDIS_ENABLED=true" >> .env
+echo "REDIS_CLUSTER_ENABLED=true" >> .env
+echo "REDIS_CLUSTER_NODES=redis-cluster-0:6379,redis-cluster-1:6379,redis-cluster-2:6379" >> .env
+docker-compose restart finopsguard
+```
+
+Cluster mode automatically fans out cache operations across all masters and surfaces cluster health via `/mcp/cache/info`.
+
 **Check Cache Status:**
 ```bash
 # Get cache statistics
@@ -1401,8 +1415,14 @@ curl http://localhost:8080/mcp/cache/info
 # Example response:
 # {
 #   "enabled": true,
-#   "host": "redis",
-#   "port": 6379,
+#   "mode": "cluster",
+#   "cluster_state": "ok",
+#   "cluster_nodes": [
+#     "redis-cluster-0:6379",
+#     "redis-cluster-1:6379",
+#     "redis-cluster-2:6379"
+#   ],
+#   "connected_clients": 18,
 #   "used_memory": "1.2M",
 #   "keyspace_hits": 1523,
 #   "keyspace_misses": 45

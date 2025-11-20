@@ -39,6 +39,9 @@ services:
       - REDIS_ENABLED=${REDIS_ENABLED:-false}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_CLUSTER_ENABLED=${REDIS_CLUSTER_ENABLED:-false}
+      - REDIS_CLUSTER_NODES=${REDIS_CLUSTER_NODES:-}
       
     volumes:
       # Mount data directory for persistence (if needed for future features)

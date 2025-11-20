@@ -4,6 +4,133 @@ import pytest
 from finopsguard.cache import get_cache, get_pricing_cache, get_analysis_cache
 
 
+@pytest.fixture(autouse=True)
+def reset_cache_singletons():
+    """Ensure cache singletons are reset between tests."""
+    from finopsguard.cache import redis_client, pricing_cache, analysis_cache
+
+    redis_client._cache_instance = None
+    pricing_cache._pricing_cache_instance = None
+    analysis_cache._analysis_cache_instance = None
+    yield
+    redis_client._cache_instance = None
+    pricing_cache._pricing_cache_instance = None
+    analysis_cache._analysis_cache_instance = None
+
+
+class TestRedisClusterMode:
+    """Tests for Redis Cluster enhancements."""
+
+    def _enable_cluster(self, monkeypatch):
+        monkeypatch.setenv("REDIS_ENABLED", "true")
+        monkeypatch.setenv("REDIS_CLUSTER_ENABLED", "true")
+        monkeypatch.setenv("REDIS_CLUSTER_NODES", "node-0:7000,node-1:7001,node-2:7002")
+
+    def test_cluster_initialization_and_info(self, monkeypatch):
+        """Verify cluster client initialization and info payload."""
+        from finopsguard.cache import redis_client
+
+        self._enable_cluster(monkeypatch)
+        captured = {}
+
+        class DummyCluster:
+            flushall_called = False
+
+            def __init__(self, *args, **kwargs):
+                captured["kwargs"] = kwargs
+
+            def ping(self):
+                return True
+
+            def scan_iter(self, match=None, count=None):
+                return iter([])
+
+            def delete(self, *keys):
+                return len(keys)
+
+            def flushall(self):
+                DummyCluster.flushall_called = True
+                return True
+
+            def info(self):
+                return {
+                    "connected_clients": 5,
+                    "used_memory_human": "2M",
+                    "used_memory_peak_human": "4M",
+                    "total_commands_processed": 100,
+                    "keyspace_hits": 50,
+                    "keyspace_misses": 10,
+                    "evicted_keys": 0,
+                    "expired_keys": 1,
+                }
+
+            def cluster_info(self):
+                return {
+                    "cluster_state": "ok",
+                    "cluster_size": 3,
+                    "cluster_slots_assigned": 16384,
+                    "cluster_slots_ok": 16384,
+                }
+
+        monkeypatch.setattr(redis_client, "RedisCluster", DummyCluster)
+        cache = redis_client.get_cache()
+
+        assert cache.cluster_enabled
+        assert cache.mode == "cluster"
+        assert captured["kwargs"]["startup_nodes"] == [
+            {"host": "node-0", "port": 7000},
+            {"host": "node-1", "port": 7001},
+            {"host": "node-2", "port": 7002},
+        ]
+
+        info = cache.info()
+        assert info["mode"] == "cluster"
+        assert info["cluster_state"] == "ok"
+        assert info["cluster_size"] == 3
+        assert len(info["cluster_nodes"]) == 3
+
+        cache.flush()
+        assert DummyCluster.flushall_called
+
+    def test_cluster_delete_pattern_scans_nodes(self, monkeypatch):
+        """Ensure delete_pattern uses SCAN for distributed deletes."""
+        from finopsguard.cache import redis_client
+
+        self._enable_cluster(monkeypatch)
+        deleted_batches = []
+
+        class DummyCluster:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def ping(self):
+                return True
+
+            def scan_iter(self, match=None, count=None):
+                assert match == "pattern:*"
+                return iter(["pattern:key1", "pattern:key2"])
+
+            def delete(self, *keys):
+                deleted_batches.append(keys)
+                return len(keys)
+
+            def flushall(self):
+                return True
+
+            def info(self):
+                return {}
+
+            def cluster_info(self):
+                return {}
+
+        monkeypatch.setattr(redis_client, "RedisCluster", DummyCluster)
+        cache = redis_client.get_cache()
+
+        deleted = cache.delete_pattern("pattern:*")
+        assert deleted == 2
+        assert deleted_batches[0] == ("pattern:key1", "pattern:key2")
+
+
 class TestRedisCache:
     """Test Redis cache client."""
     
